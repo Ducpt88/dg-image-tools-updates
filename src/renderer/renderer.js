@@ -7,6 +7,7 @@ const loginButton = document.querySelector('#loginButton');
 const loginStatus = document.querySelector('#loginStatus');
 const logoutButton = document.querySelector('#logoutButton');
 const userIdentity = document.querySelector('#userIdentity');
+const quotaBadge = document.querySelector('#quotaBadge');
 const imageForm = document.querySelector('#imageForm');
 const renderButton = document.querySelector('#renderButton');
 const clearPromptButton = document.querySelector('#clearPrompt');
@@ -84,6 +85,37 @@ const setAuthenticated = (session) => {
   authSession = session;
   document.body.classList.toggle('auth-locked', !session);
   userIdentity.textContent = session?.user?.email || 'Local image endpoint workspace';
+  renderQuotaBadge(session?.user);
+};
+
+const renderQuotaBadge = (user) => {
+  const quotaTotal = Number(user?.quotaTotal ?? 0);
+  const quotaUsed = Number(user?.quotaUsed ?? 0);
+  const quotaRemaining = Number.isFinite(Number(user?.quotaRemaining))
+    ? Number(user.quotaRemaining)
+    : Math.max(0, quotaTotal - quotaUsed);
+
+  if (!user || !quotaTotal) {
+    quotaBadge.hidden = true;
+    quotaBadge.textContent = 'Quota --/--';
+    return;
+  }
+
+  quotaBadge.hidden = false;
+  quotaBadge.textContent = `Quota ${quotaRemaining}/${quotaTotal}`;
+  quotaBadge.classList.toggle('quota-low', quotaRemaining <= Math.max(3, Math.ceil(quotaTotal * 0.1)));
+};
+
+const refreshCurrentUser = async () => {
+  if (!authSession?.token) {
+    return null;
+  }
+
+  const user = await window.toolApi.getCurrentUser(authSession.token);
+  authSession = { ...authSession, user };
+  renderQuotaBadge(user);
+  userIdentity.textContent = user?.email || authSession.user?.email || 'Local image endpoint workspace';
+  return user;
 };
 
 const clearAuthSession = () => {
@@ -963,6 +995,7 @@ imageForm.addEventListener('submit', async (event) => {
       savedPath: result.savedPath,
       response: result.raw
     }, null, 2);
+    await refreshCurrentUser();
     statusText.textContent = 'Hoàn tất';
   } catch (error) {
     statusText.textContent = 'Thất bại';
@@ -1132,6 +1165,7 @@ runBatchButton.addEventListener('click', async () => {
     batchStatus.textContent = `${stopBatchRequested ? 'Đã dừng' : 'Hoàn tất'}: ${successCount} thành công, ${failedCount} lỗi / ${batchItems.length}`;
     statusText.textContent = failedCount > 0 ? `Xong nhưng lỗi ${failedCount} ảnh` : (stopBatchRequested ? 'Đã dừng hàng loạt' : 'Hoàn tất hàng loạt');
     outputLog.textContent = JSON.stringify({ manifestPath, results }, null, 2);
+    await refreshCurrentUser();
     activeRequestId = null;
     setBatchLoading(false);
   }

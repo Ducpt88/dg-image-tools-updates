@@ -145,6 +145,35 @@ textarea {
   gap: 12px;
 }
 
+.identity-row {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.quota-badge {
+  display: inline-flex;
+  align-items: center;
+  height: 22px;
+  border: 1px solid #9ec5fe;
+  border-radius: 999px;
+  background: #eff6ff;
+  color: #174ea6;
+  padding: 0 9px;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.quota-badge.quota-low {
+  border-color: #fecaca;
+  background: #fff1f2;
+  color: #be123c;
+}
+
 .app-logo {
   display: block;
   width: 52px;
@@ -366,14 +395,15 @@ textarea:focus {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 36px;
-  height: 32px;
-  border: 1px solid #f59e0b;
+  width: 38px;
+  height: 34px;
+  border: 1px solid #d97706;
   border-radius: 8px;
-  background: #fef3c7;
-  color: #92400e;
+  background: #fffbeb;
+  color: #b45309;
   padding: 0;
   cursor: pointer;
+  box-shadow: 0 1px 2px rgba(146, 64, 14, 0.18);
 }
 
 .crown-button svg {
@@ -384,6 +414,11 @@ textarea:focus {
   stroke-width: 2;
   stroke-linecap: round;
   stroke-linejoin: round;
+}
+
+.crown-button .crown-fill {
+  fill: #fbbf24;
+  stroke: #92400e;
 }
 
 .crown-button:hover {
