@@ -1,0 +1,8 @@
+node_modules/
+node_modules_corrupt_*/
+dist/
+server/data/
+server/*.log
+.playwright-cli/
+*.local
+*.env

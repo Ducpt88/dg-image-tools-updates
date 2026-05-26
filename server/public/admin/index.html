@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>9Router Admin</title>
+    <link rel="stylesheet" href="./styles.css">
+  </head>
+  <body>
+    <main class="admin-shell">
+      <section id="loginView" class="login-view">
+        <form id="adminLogin" class="login-panel">
+          <h1>9Router Admin</h1>
+          <label>
+            <span>Email admin</span>
+            <input id="email" type="email" required>
+          </label>
+          <label>
+            <span>Mật khẩu</span>
+            <input id="password" type="password" required>
+          </label>
+          <button type="submit">Đăng nhập</button>
+          <p id="loginStatus"></p>
+        </form>
+      </section>
+
+      <section id="dashboardView" class="dashboard-view hidden">
+        <header class="topbar">
+          <div>
+            <h1>9Router Admin</h1>
+            <p id="adminEmail">Đang quản lý hệ thống</p>
+          </div>
+          <button id="logout" type="button">Đăng xuất</button>
+        </header>
+
+        <section class="stats-grid">
+          <article><span>Tài khoản</span><strong id="statUsers">0</strong></article>
+          <article><span>Đang hoạt động</span><strong id="statActive">0</strong></article>
+          <article><span>Ảnh đã tạo</span><strong id="statImages">0</strong></article>
+          <article><span>Hôm nay</span><strong id="statToday">0</strong></article>
+          <article><span>Lỗi</span><strong id="statFailures">0</strong></article>
+        </section>
+
+        <section class="panel">
+          <header class="panel-title">
+            <h2>Thêm tài khoản</h2>
+            <span id="createStatus"></span>
+          </header>
+          <form id="createUser" class="create-grid">
+            <input id="newEmail" type="email" placeholder="Email" required>
+            <input id="newPassword" type="password" placeholder="Mật khẩu" required>
+            <input id="newQuota" type="number" min="0" value="100" placeholder="Quota">
+            <input id="newExpiresAt" type="date">
+            <input id="newDeviceLimit" type="number" min="1" value="1" placeholder="Thiết bị">
+            <select id="newRole">
+              <option value="user">User</option>
+              <option value="admin">Admin</option>
+            </select>
+            <button type="submit">Thêm</button>
+          </form>
+        </section>
+
+        <section class="panel">
+          <header class="panel-title">
+            <h2>Danh sách tài khoản</h2>
+            <button id="refresh" type="button">Cập nhật</button>
+          </header>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Email</th>
+                  <th>Role</th>
+                  <th>Trạng thái</th>
+                  <th>Quota</th>
+                  <th>Hết hạn</th>
+                  <th>Thiết bị</th>
+                  <th>Đăng nhập cuối</th>
+                  <th>Thao tác</th>
+                </tr>
+              </thead>
+              <tbody id="usersBody"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="panel">
+          <header class="panel-title">
+            <h2>Lịch sử tạo ảnh</h2>
+          </header>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Thời gian</th>
+                  <th>Email</th>
+                  <th>Kết quả</th>
+                  <th>Thiết bị</th>
+                  <th>Prompt / lỗi</th>
+                </tr>
+              </thead>
+              <tbody id="eventsBody"></tbody>
+            </table>
+          </div>
+        </section>
+      </section>
+    </main>
+
+    <script src="./admin.js"></script>
+  </body>
+</html>

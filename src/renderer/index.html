@@ -1,0 +1,370 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DG Image Tools Admin</title>
+    <link rel="icon" href="../assets/icon.png" type="image/png">
+    <link rel="stylesheet" href="./styles.css">
+  </head>
+  <body>
+    <section id="authScreen" class="auth-screen">
+      <form id="loginForm" class="login-panel">
+        <div class="brand-lockup">
+          <img class="app-logo" src="../assets/icon.png" alt="DG Image Tools">
+          <div>
+            <h1>DG Image Tools Admin</h1>
+            <p>Đăng nhập để sử dụng công cụ tạo ảnh</p>
+          </div>
+        </div>
+
+        <label class="login-field">
+          <span>Email</span>
+          <input id="loginEmail" name="email" type="email" autocomplete="email" placeholder="email@example.com" required>
+        </label>
+
+        <label class="login-field">
+          <span>Mật khẩu</span>
+          <input id="loginPassword" name="password" type="password" autocomplete="current-password" placeholder="Mật khẩu" required>
+        </label>
+
+        <button id="loginButton" class="primary-button" type="submit">Đăng nhập</button>
+        <p id="loginStatus" class="login-status">Tài khoản do quản trị viên cấp.</p>
+      </form>
+    </section>
+
+    <main id="appShell" class="app-shell">
+      <section class="generator-panel">
+        <header class="panel-title">
+          <div class="brand-lockup">
+            <img class="app-logo" src="../assets/icon.png" alt="DG Image Tools Admin">
+            <div>
+              <h1>9Router Image Tool Admin</h1>
+              <p id="userIdentity">Local image endpoint workspace</p>
+            </div>
+            <button id="memberPanelButton" class="crown-button" type="button" title="Quản lý thành viên">Vương Miện</button>
+          </div>
+          <div class="user-actions">
+            <span id="appVersion">v...</span>
+            <button id="logoutButton" class="secondary-button compact" type="button">Đăng xuất</button>
+          </div>
+        </header>
+
+        <form id="imageForm" class="config-form">
+          <section class="form-section connection-section private-config" aria-labelledby="connectionTitle">
+            <h2 id="connectionTitle">Kết nối</h2>
+            <div class="section-fields">
+              <label>
+                <span>Mô hình</span>
+                <select id="model" name="model">
+                  <option value="cx/gpt-5.5-image">GPT 5.5 Image</option>
+                </select>
+              </label>
+
+              <label>
+                <span>Điểm cuối</span>
+                <input id="endpoint" name="endpoint" type="url" value="https://ducpt.com/api/9router/user/images/generations" required>
+              </label>
+
+              <label>
+                <span>Khóa API</span>
+                <div class="api-key-row">
+                  <input id="apiKey" name="apiKey" type="password" value="">
+                  <button id="toggleApiKey" class="secondary-button compact" type="button">Hiện</button>
+                </div>
+              </label>
+
+              <label>
+                <span>Kết nối</span>
+                <select id="connection" name="connection">
+                  <option value="auto">Tự động (theo ưu tiên)</option>
+                </select>
+              </label>
+            </div>
+          </section>
+
+          <section class="form-section content-section" aria-labelledby="contentTitle">
+            <h2 id="contentTitle">Nội dung</h2>
+            <div class="section-fields">
+              <label class="wide-field">
+                <span>Câu lệnh</span>
+                <div class="prompt-row">
+                  <input id="prompt" name="prompt" type="text" placeholder="Nhập nội dung ảnh cần tạo" required>
+                  <button id="detectPrompt" class="secondary-button compact detect-button" type="button">Tự nhận diện</button>
+                  <button id="clearPrompt" class="icon-button" type="button" aria-label="Xóa câu lệnh">x</button>
+                </div>
+              </label>
+
+              <label class="wide-field">
+                <span>Ảnh gốc (URL)</span>
+                <input id="refImageUrl" name="refImageUrl" type="url" placeholder="https://example.com/source.png">
+              </label>
+            </div>
+          </section>
+
+          <section class="form-section optimize-section" aria-labelledby="optimizeTitle">
+            <h2 id="optimizeTitle">Tối ưu ảnh</h2>
+            <div class="section-fields compact-grid">
+              <label>
+                <span>Kích thước</span>
+                <select id="size" name="size">
+                  <option value="auto" selected>Tự động</option>
+                  <option value="1920x1080">16:9 - 1920x1080</option>
+                  <option value="1536x864">16:9 - 1536x864</option>
+                  <option value="1280x720">16:9 - 1280x720</option>
+                  <option value="1080x1920">9:16 - 1080x1920</option>
+                  <option value="1024x1024">1024x1024</option>
+                  <option value="1024x1536">1024x1536</option>
+                  <option value="1536x1024">1536x1024</option>
+                </select>
+              </label>
+
+              <label>
+                <span>Tối ưu</span>
+                <select id="promptStyle" name="promptStyle">
+                  <option value="autoDetect" selected>Tự nhận diện prompt</option>
+                  <option value="none">Không thêm</option>
+                  <option value="mexicoThumbnail">Thumbnail Mexico CTR</option>
+                  <option value="social">Mạng xã hội</option>
+                  <option value="premium">Đẹp nổi bật</option>
+                  <option value="cinematic">Điện ảnh</option>
+                  <option value="product">Sản phẩm</option>
+                </select>
+              </label>
+
+              <label>
+                <span>Chất lượng</span>
+                <select id="quality" name="quality">
+                  <option value="auto">Tự động</option>
+                  <option value="low">Thấp</option>
+                  <option value="medium">Trung bình</option>
+                  <option value="high" selected>Cao</option>
+                </select>
+              </label>
+
+              <label>
+                <span>Nền</span>
+                <select id="background" name="background">
+                  <option value="auto">Tự động</option>
+                  <option value="transparent">Trong suốt</option>
+                  <option value="opaque">Đặc</option>
+                </select>
+              </label>
+
+              <label>
+                <span>Text ảnh / Cảm xúc</span>
+                <select id="textMode" name="textMode">
+                  <option value="required">Bắt buộc headline lớn</option>
+                  <option value="strict">Rất nghiêm ngặt</option>
+                  <option value="normal">Theo prompt</option>
+                  <option value="curiosity">Tò mò / muốn bấm</option>
+                  <option value="shock">Sốc / bất ngờ</option>
+                  <option value="fearUrgency">Lo sợ / khẩn cấp</option>
+                  <option value="authority">Chuyên gia / uy tín</option>
+                  <option value="luxury">Sang trọng / cao cấp</option>
+                  <option value="happyPositive">Vui vẻ / tích cực</option>
+                  <option value="emotionalStory">Cảm động / câu chuyện</option>
+                  <option value="controversy">Tranh cãi / đối đầu</option>
+                  <option value="transformation">Biến đổi / before-after</option>
+                  <option value="moneySuccess">Tiền bạc / thành công</option>
+                  <option value="tutorialClear">Rõ ràng / hướng dẫn</option>
+                  <option value="mysteryReveal">Bí ẩn / hé lộ</option>
+                  <option value="cleanWebsite">Website sạch / chuyên nghiệp</option>
+                </select>
+              </label>
+
+              <label>
+                <span>Icon/badge</span>
+                <select id="iconStyle" name="iconStyle">
+                  <option value="none">Không thêm</option>
+                  <option value="youtubeViral">YouTube viral</option>
+                  <option value="breakingNews">Tin nóng / breaking</option>
+                  <option value="alert">Cảnh báo / drama</option>
+                  <option value="mystery">Bí ẩn / khám phá</option>
+                  <option value="mexicoGossip">Gossip Mexico</option>
+                  <option value="reviewRating">Review / đánh giá</option>
+                  <option value="tutorialGuide">Hướng dẫn / tutorial</option>
+                  <option value="productSale">Sale / sản phẩm</option>
+                  <option value="techAi">Công nghệ / AI</option>
+                  <option value="gaming">Gaming / eSport</option>
+                  <option value="beforeAfter">Before / After</option>
+                  <option value="finance">Tài chính / crypto</option>
+                  <option value="success">Thành công / động lực</option>
+                  <option value="health">Sức khỏe / làm đẹp</option>
+                  <option value="travel">Du lịch / khám phá</option>
+                  <option value="food">Ẩm thực / món ăn</option>
+                  <option value="royal">Vương miện / quyền lực</option>
+                </select>
+              </label>
+
+              <label>
+                <span>Chi tiết ảnh</span>
+                <select id="imageDetail" name="imageDetail">
+                  <option value="high">Cao</option>
+                  <option value="auto">Tự động</option>
+                  <option value="low">Thấp</option>
+                </select>
+              </label>
+            </div>
+          </section>
+
+          <section class="form-section output-section" aria-labelledby="outputTitle">
+            <h2 id="outputTitle">Đầu ra</h2>
+            <div class="section-fields output-grid">
+              <label>
+                <span>Định dạng</span>
+                <select id="outputFormat" name="outputFormat">
+                  <option value="png">png</option>
+                  <option value="jpeg">jpeg</option>
+                  <option value="webp">webp</option>
+                </select>
+              </label>
+
+              <label>
+                <span>Kiểu đầu ra</span>
+                <select id="responseFormat" name="responseFormat">
+                  <option value="base64">JSON (Base64)</option>
+                </select>
+              </label>
+
+              <label>
+                <span>Tên bài</span>
+                <input id="articleTitle" name="articleTitle" type="text" placeholder="Ví dụ: Majo Aguilar responde con clase">
+              </label>
+
+              <label>
+                <span>Lưu vào</span>
+                <div class="path-row">
+                  <input id="outputDir" name="outputDir" type="text" placeholder="Chọn thư mục lưu ảnh">
+                  <button id="chooseOutputDir" class="secondary-button compact" type="button">Chọn…</button>
+                </div>
+              </label>
+            </div>
+          </section>
+
+          <div class="form-actions">
+            <button id="renderButton" class="primary-button" type="submit">Tạo ảnh</button>
+            <span id="statusText">Sẵn sàng</span>
+          </div>
+        </form>
+
+        <section class="command-panel">
+          <header class="subpanel-title">
+            <h2>Lệnh curl</h2>
+            <button id="copyCommand" class="secondary-button compact" type="button">Sao chép</button>
+          </header>
+          <textarea id="commandOutput" spellcheck="false"></textarea>
+        </section>
+
+        <section class="batch-panel">
+          <header class="subpanel-title">
+            <h2>Tạo hàng loạt</h2>
+            <span id="batchCount">0 câu lệnh</span>
+          </header>
+          <div class="batch-tools">
+            <input id="promptFile" type="file" accept=".txt,.csv,.json">
+            <label class="small-label">
+              <span>Độ trễ ms</span>
+              <input id="batchDelay" type="number" min="0" step="100" value="800">
+            </label>
+          </div>
+          <textarea id="batchPrompts" placeholder="Dán danh sách dạng: 1) TÊN HƯỚNG, dòng Prompt:, rồi nội dung prompt. App sẽ tự tách từng mục để tạo hàng loạt."></textarea>
+          <div class="form-actions">
+            <button id="runBatch" class="primary-button" type="button">Tạo hàng loạt</button>
+            <span id="batchStatus">Đang chờ</span>
+          </div>
+        </section>
+      </section>
+
+      <section class="preview-panel">
+        <header class="panel-title">
+          <div>
+            <h2>Xem trước</h2>
+            <p id="lastRun">Chưa tạo ảnh</p>
+          </div>
+          <a id="downloadLink" class="secondary-button hidden" download="9router-image.png">Tải xuống</a>
+        </header>
+
+        <div id="previewFrame" class="preview-frame">
+          <div id="previewGrid" class="preview-grid">
+            <div class="empty-preview">
+              <img src="../assets/icon.png" alt="">
+              <span>Chưa có ảnh</span>
+            </div>
+          </div>
+          <img id="previewImage" class="hidden" alt="">
+        </div>
+
+        <pre id="outputLog">Nhật ký yêu cầu sẽ hiển thị tại đây.</pre>
+      </section>
+    </main>
+
+    <div id="memberPanelOverlay" class="member-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="memberPanelTitle">
+      <section class="member-panel">
+        <header class="member-panel-head">
+          <div>
+            <h2 id="memberPanelTitle">Quản lý thành viên sử dụng</h2>
+            <p id="memberPanelStatus">Gói chuẩn 99.000đ / 1 tháng</p>
+          </div>
+          <button id="memberPanelClose" class="icon-button" type="button" aria-label="Đóng">x</button>
+        </header>
+
+        <section class="member-hero">
+          <div>
+            <span>Doanh thu tháng dự kiến</span>
+            <strong id="memberStatRevenue">0đ</strong>
+            <p>Tính theo số tài khoản đang hoạt động và giá gói hiện tại.</p>
+          </div>
+          <div class="member-plan-card">
+            <span>Gói đang bán</span>
+            <strong>99.000đ</strong>
+            <p>1 tháng sử dụng, giới hạn theo quota và thiết bị.</p>
+          </div>
+        </section>
+
+        <section class="member-stats">
+          <article><span>Tài khoản</span><strong id="memberStatUsers">0</strong></article>
+          <article><span>Đang hoạt động</span><strong id="memberStatActive">0</strong></article>
+          <article><span>Sắp hết hạn</span><strong id="memberStatExpiring">0</strong></article>
+          <article><span>Đã hết hạn</span><strong id="memberStatExpired">0</strong></article>
+          <article><span>Ảnh đã tạo</span><strong id="memberStatImages">0</strong></article>
+          <article><span>Lỗi</span><strong id="memberStatFailures">0</strong></article>
+        </section>
+
+        <form id="memberCreateForm" class="member-create">
+          <input id="memberEmail" type="email" placeholder="Email thành viên" required>
+          <input id="memberPassword" type="password" placeholder="Mật khẩu" required>
+          <select id="memberPlan">
+            <option value="monthly" selected>Gói tháng 99k</option>
+            <option value="trial">Dùng thử 7 ngày</option>
+            <option value="vip">VIP 199k</option>
+          </select>
+          <input id="memberPrice" type="number" min="0" value="99000" placeholder="Giá">
+          <input id="memberQuota" type="number" min="0" value="100" placeholder="Quota">
+          <input id="memberExpiresAt" type="date">
+          <input id="memberDeviceLimit" type="number" min="1" value="1" placeholder="Thiết bị">
+          <button class="primary-button compact" type="submit">Thêm</button>
+        </form>
+
+        <div class="member-table-wrap">
+          <table class="member-table">
+            <thead>
+              <tr>
+                <th>Email</th>
+                <th>Gói</th>
+                <th>Trạng thái</th>
+                <th>Quota</th>
+                <th>Hết hạn</th>
+                <th>Thiết bị</th>
+                <th>Thao tác</th>
+              </tr>
+            </thead>
+            <tbody id="memberTableBody"></tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+
+    <script src="./renderer.js"></script>
+  </body>
+</html>
