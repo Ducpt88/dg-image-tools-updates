@@ -5,17 +5,31 @@ const bcrypt = require('bcryptjs');
 
 const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, 'data');
 const DB_FILE = path.join(DATA_DIR, 'db.json');
+const BACKUP_DIR = path.join(DATA_DIR, 'backups');
+const MAX_BACKUPS = Number(process.env.DATA_BACKUP_LIMIT || 80);
 
 const defaultDb = {
   users: [],
-  events: []
+  events: [],
+  orders: []
 };
 
 const readDb = async () => {
   try {
     const raw = await fs.readFile(DB_FILE, 'utf8');
-    return JSON.parse(raw);
-  } catch {
+    try {
+      return JSON.parse(raw);
+    } catch (error) {
+      await fs.mkdir(BACKUP_DIR, { recursive: true });
+      const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+      await fs.writeFile(path.join(BACKUP_DIR, `db-corrupt-${stamp}.json`), raw, 'utf8');
+      throw new Error(`Database khach hang bi loi dinh dang JSON. Da sao luu ban loi vao ${BACKUP_DIR}.`);
+    }
+  } catch (error) {
+    if (error.code !== 'ENOENT') {
+      throw error;
+    }
+
     await fs.mkdir(DATA_DIR, { recursive: true });
     await fs.writeFile(DB_FILE, JSON.stringify(defaultDb, null, 2), 'utf8');
     return structuredClone(defaultDb);
@@ -24,8 +38,34 @@ const readDb = async () => {
 
 const writeDb = async (db) => {
   await fs.mkdir(DATA_DIR, { recursive: true });
-  await fs.writeFile(DB_FILE, JSON.stringify(db, null, 2), 'utf8');
+  await fs.mkdir(BACKUP_DIR, { recursive: true });
+
+  try {
+    const existing = await fs.readFile(DB_FILE, 'utf8');
+    const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+    await fs.writeFile(path.join(BACKUP_DIR, `db-${stamp}.json`), existing, 'utf8');
+
+    const backups = (await fs.readdir(BACKUP_DIR))
+      .filter((name) => /^db-.+\.json$/.test(name))
+      .sort();
+    await Promise.all(backups.slice(0, Math.max(0, backups.length - MAX_BACKUPS)).map((name) => (
+      fs.unlink(path.join(BACKUP_DIR, name)).catch(() => {})
+    )));
+  } catch {
+    // First write, no previous database to back up yet.
+  }
+
+  const tempFile = `${DB_FILE}.tmp`;
+  await fs.writeFile(tempFile, JSON.stringify(db, null, 2), 'utf8');
+  await fs.rename(tempFile, DB_FILE);
 };
+
+const getStorageInfo = () => ({
+  dataDir: DATA_DIR,
+  dbFile: DB_FILE,
+  backupDir: BACKUP_DIR,
+  backupLimit: MAX_BACKUPS
+});
 
 const publicUser = (user) => ({
   id: user.id,
@@ -130,6 +170,79 @@ const createUser = async ({
   db.users.push(user);
   await writeDb(db);
   return publicUser(user);
+};
+
+const publicOrder = (order) => ({
+  id: order.id,
+  code: order.code,
+  customerName: order.customerName,
+  email: order.email,
+  phone: order.phone,
+  planId: order.planId,
+  planName: order.planName,
+  price: Number(order.price || 0),
+  quotaTotal: Number(order.quotaTotal || 0),
+  deviceLimit: Number(order.deviceLimit || 1),
+  months: Number(order.months || 1),
+  status: order.status || 'pending_payment',
+  transferContent: order.transferContent,
+  note: order.note || '',
+  createdAt: order.createdAt,
+  updatedAt: order.updatedAt
+});
+
+const createOrder = async ({
+  customerName,
+  email,
+  phone,
+  planId,
+  planName,
+  price,
+  quotaTotal,
+  deviceLimit = 1,
+  months = 1,
+  note = ''
+}) => {
+  const db = await readDb();
+  db.orders ||= [];
+
+  const normalizedEmail = String(email || '').trim().toLowerCase();
+  const cleanPhone = String(phone || '').trim();
+  const cleanName = String(customerName || '').trim();
+
+  if (!cleanName || !normalizedEmail || !cleanPhone) {
+    throw new Error('Vui long nhap day du ho ten, email va so dien thoai.');
+  }
+
+  const now = new Date().toISOString();
+  const code = `DG${Date.now().toString(36).toUpperCase().slice(-6)}${crypto.randomInt(100, 999)}`;
+  const order = {
+    id: crypto.randomUUID(),
+    code,
+    customerName: cleanName,
+    email: normalizedEmail,
+    phone: cleanPhone,
+    planId: String(planId || 'monthly'),
+    planName: String(planName || 'Goi thang'),
+    price: Number(price || 0),
+    quotaTotal: Number(quotaTotal || 0),
+    deviceLimit: Number(deviceLimit || 1),
+    months: Number(months || 1),
+    status: Number(price || 0) > 0 ? 'pending_payment' : 'trial_registered',
+    transferContent: code,
+    note: String(note || '').trim().slice(0, 1000),
+    createdAt: now,
+    updatedAt: now
+  };
+
+  db.orders.push(order);
+  await writeDb(db);
+  return publicOrder(order);
+};
+
+const listOrders = async (limit = 200) => {
+  const db = await readDb();
+  return (db.orders || []).slice(-Number(limit || 200)).reverse().map(publicOrder);
 };
 
 const updateUser = async (id, changes) => {
@@ -278,5 +391,8 @@ module.exports = {
   validateUserForUse,
   recordImageEvent,
   listEvents,
-  getStats
+  getStats,
+  getStorageInfo,
+  createOrder,
+  listOrders
 };
