@@ -29,3 +29,5 @@ services:
         sync: false
       - key: SHEETS_WEBHOOK_URL
         sync: false
+      - key: SALES_SHEET_ID
+        value: 1YL2mY6uYJCNrLASNjev7g7XDiPYVi4wBy8S_V7Ntlzg
