@@ -1,6 +1,6 @@
 {
   "name": "9router-electron-tool",
-  "version": "1.9.5",
+  "version": "1.9.6",
   "description": "Desktop Electron tool scaffold for 9router.",
   "main": "src/main.js",
   "scripts": {

@@ -1450,7 +1450,7 @@ const getAppConfig = () => ({
     mainEntry: packageInfo.main,
     license: packageInfo.license,
     runtimeMode: isSmokeTest ? 'Smoke Test' : 'Local',
-    electronVersion: packageInfo.devDependencies.electron
+    electronVersion: packageInfo.devDependencies?.electron || process.versions.electron || ''
   },
   admin: {
     memberSource: adminCloudMode ? 'cloud' : 'local',
