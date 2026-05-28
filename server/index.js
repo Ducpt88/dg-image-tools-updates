@@ -753,7 +753,7 @@ const imageGenerationHandler = async (req, res) => {
           body: JSON.stringify(payload)
         });
         rawText = await upstream.text();
-        if (upstream.ok || upstream.status < 500 || endpoint === ROUTER_IMAGE_ENDPOINTS.at(-1)) {
+        if (upstream.ok || (upstream.status < 500 && upstream.status !== 404) || endpoint === ROUTER_IMAGE_ENDPOINTS.at(-1)) {
           break;
         }
       } catch (error) {
