@@ -25,11 +25,21 @@ if (!process.env.DATA_DIR) {
 const adminStore = require('../server/store');
 
 const isSmokeTest = process.argv.includes('--smoke-test');
-const appServerBaseUrl = String(
-  process.env.NINE_ROUTER_API_BASE_URL
-  || process.env.APP_SERVER_BASE_URL
-  || 'https://ducpt-9router-api.onrender.com'
-).replace(/\/$/, '');
+const parseBaseUrlList = (...values) => {
+  const urls = values
+    .flatMap((value) => String(value || '').split(','))
+    .map((value) => value.trim().replace(/\/$/, ''))
+    .filter(Boolean);
+  return [...new Set(urls)];
+};
+const cloudApiBaseUrls = parseBaseUrlList(
+  process.env.NINE_ROUTER_API_BASE_URLS,
+  process.env.NINE_ROUTER_API_BASE_URL,
+  process.env.APP_SERVER_BASE_URL,
+  'https://ducpt.com',
+  'https://ducpt-9router-api.onrender.com'
+);
+const appServerBaseUrl = cloudApiBaseUrls[0];
 const localAppServerBaseUrl = String(process.env.LOCAL_APP_SERVER_BASE_URL || 'http://localhost:3030').replace(/\/$/, '');
 const userApiBasePath = '/api/9router/user';
 const legacyUserApiBasePath = '/api';
@@ -70,6 +80,7 @@ const localAuthSessions = new Map();
 let sessionsLoaded = false;
 let mainWindowRef = null;
 let cloudAdminToken = '';
+let cloudAdminBaseUrl = '';
 let updateStatus = {
   state: 'idle',
   message: 'Chua kiem tra cap nhat.',
@@ -275,8 +286,10 @@ const simplifyHttpErrorBody = (text) => String(text || '')
 
 const fetchUserApi = async (pathSuffix, options = {}) => {
   const candidates = [
-    `${appServerBaseUrl}${userApiBasePath}${pathSuffix}`,
-    `${appServerBaseUrl}${legacyUserApiBasePath}${pathSuffix}`,
+    ...cloudApiBaseUrls.flatMap((baseUrl) => [
+      `${baseUrl}${userApiBasePath}${pathSuffix}`,
+      `${baseUrl}${legacyUserApiBasePath}${pathSuffix}`
+    ]),
     `${localAppServerBaseUrl}${userApiBasePath}${pathSuffix}`,
     `${localAppServerBaseUrl}${legacyUserApiBasePath}${pathSuffix}`
   ];
@@ -312,6 +325,97 @@ const fetchUserApi = async (pathSuffix, options = {}) => {
   const detail = lastError
     ? `${lastError.message} (${lastError.status || 'NETWORK'} ${lastError.url})`
     : 'Khong ket noi duoc backend.';
+  throw new Error(detail);
+};
+
+const fetchCloudUserApi = async (pathSuffix, options = {}) => {
+  const candidates = cloudApiBaseUrls.flatMap((baseUrl) => [
+    { baseUrl, url: `${baseUrl}${userApiBasePath}${pathSuffix}` },
+    { baseUrl, url: `${baseUrl}${legacyUserApiBasePath}${pathSuffix}` }
+  ]);
+  let lastError = null;
+
+  for (const candidate of candidates) {
+    try {
+      const response = await fetch(candidate.url, options);
+      const body = await readJsonResponse(response);
+
+      if (response.ok) {
+        return { response, body, url: candidate.url, baseUrl: candidate.baseUrl };
+      }
+
+      lastError = {
+        status: response.status,
+        url: candidate.url,
+        message: body.message || body.error || `HTTP ${response.status}`
+      };
+
+      if (![404, 405].includes(response.status)) {
+        break;
+      }
+    } catch (error) {
+      lastError = {
+        status: 0,
+        url: candidate.url,
+        message: error.message || 'Khong ket noi duoc backend cloud.'
+      };
+    }
+  }
+
+  const detail = lastError
+    ? `${lastError.message} (${lastError.status || 'NETWORK'} ${lastError.url})`
+    : 'Khong ket noi duoc backend cloud.';
+  throw new Error(detail);
+};
+
+const fetchCloudImageGeneration = async ({ payload, authToken, deviceId, signal }) => {
+  const candidates = cloudApiBaseUrls.flatMap((baseUrl) => [
+    `${baseUrl}${userApiBasePath}/images/generations`,
+    `${baseUrl}${legacyUserApiBasePath}/images/generations`
+  ]);
+  let lastError = null;
+
+  for (const url of candidates) {
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'text/event-stream',
+          Authorization: `Bearer ${authToken}`,
+          ...(deviceId ? { 'X-Device-Id': deviceId } : {})
+        },
+        body: JSON.stringify(payload),
+        signal
+      });
+      const rawText = await response.text();
+
+      if (response.ok) {
+        return { response, rawText, url };
+      }
+
+      const detail = simplifyHttpErrorBody(rawText);
+      lastError = {
+        status: response.status,
+        url,
+        message: detail || `HTTP ${response.status}`
+      };
+
+      if (![404, 405].includes(response.status)) {
+        break;
+      }
+    } catch (error) {
+      lastError = {
+        status: 0,
+        url,
+        message: error.message || 'Khong ket noi duoc backend cloud.'
+      };
+    }
+  }
+
+  const detail = lastError
+    ? `${lastError.message} (${lastError.status || 'NETWORK'} ${lastError.url})`
+    : 'Khong ket noi duoc backend cloud.';
   throw new Error(detail);
 };
 
@@ -971,7 +1075,7 @@ const loginCloudAdmin = async ({ force = false } = {}) => {
     return cloudAdminToken;
   }
 
-  const loginResponse = await fetch(`${appServerBaseUrl}${userApiBasePath}/auth/login`, {
+  const loginResult = await fetchCloudUserApi('/auth/login', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -983,14 +1087,8 @@ const loginCloudAdmin = async ({ force = false } = {}) => {
       deviceId: `admin-${crypto.createHash('sha256').update(os.hostname()).digest('hex').slice(0, 16)}`
     })
   });
-  const loginBody = await readJsonResponse(loginResponse);
-
-  if (!loginResponse.ok) {
-    throw new Error(loginBody.message || loginBody.error || `Cloud admin login HTTP ${loginResponse.status}`);
-  }
-
-  const user = loginBody.user || {};
-  const token = loginBody.token || loginBody.accessToken || loginBody.access_token;
+  const user = loginResult.body.user || {};
+  const token = loginResult.body.token || loginResult.body.accessToken || loginResult.body.access_token;
 
   if (!token) {
     throw new Error('Cloud admin login khong tra token.');
@@ -1000,12 +1098,13 @@ const loginCloudAdmin = async ({ force = false } = {}) => {
   }
 
   cloudAdminToken = token;
+  cloudAdminBaseUrl = loginResult.baseUrl;
   return cloudAdminToken;
 };
 
 const fetchCloudAdmin = async (pathSuffix, options = {}) => {
   let token = await loginCloudAdmin();
-  const request = async (bearerToken) => fetch(`${appServerBaseUrl}/api/9router/admin${pathSuffix}`, {
+  const request = async (bearerToken) => fetch(`${cloudAdminBaseUrl || appServerBaseUrl}/api/9router/admin${pathSuffix}`, {
     ...options,
     headers: {
       Accept: 'application/json',
@@ -1042,7 +1141,7 @@ const getCloudAdminDashboard = async () => {
     events: eventsBody.events || [],
     storage: {
       mode: 'cloud',
-      apiBaseUrl: appServerBaseUrl
+      apiBaseUrl: cloudAdminBaseUrl || appServerBaseUrl
     }
   };
 };
@@ -1186,19 +1285,32 @@ const generateImage = async (config) => {
       throw new Error('Vui lòng đăng nhập trước khi tạo ảnh.');
     }
 
-    const response = await fetch(targetEndpoint, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Accept: 'text/event-stream',
-        ...(bearerToken ? { Authorization: `Bearer ${bearerToken}` } : {}),
-        ...(deviceId ? { 'X-Device-Id': deviceId } : {})
-      },
-      body: JSON.stringify(payload),
-      signal: controller.signal
-    });
+    let response;
+    let rawText;
 
-    const rawText = await response.text();
+    if (isUserBuild() && !hasLocalUserSession) {
+      const cloudResult = await fetchCloudImageGeneration({
+        payload,
+        authToken,
+        deviceId,
+        signal: controller.signal
+      });
+      response = cloudResult.response;
+      rawText = cloudResult.rawText;
+    } else {
+      response = await fetch(targetEndpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'text/event-stream',
+          ...(bearerToken ? { Authorization: `Bearer ${bearerToken}` } : {}),
+          ...(deviceId ? { 'X-Device-Id': deviceId } : {})
+        },
+        body: JSON.stringify(payload),
+        signal: controller.signal
+      });
+      rawText = await response.text();
+    }
 
     if (!response.ok) {
       const detail = simplifyHttpErrorBody(rawText);
@@ -1288,7 +1400,8 @@ const getAppConfig = () => ({
   },
   admin: {
     memberSource: adminCloudMode ? 'cloud' : 'local',
-    cloudBaseUrl: adminCloudMode ? appServerBaseUrl : ''
+    cloudBaseUrl: adminCloudMode ? appServerBaseUrl : '',
+    cloudCandidates: adminCloudMode ? cloudApiBaseUrls : []
   },
   window: {
     ...windowConfig,
