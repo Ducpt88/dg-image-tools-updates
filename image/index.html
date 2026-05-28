@@ -623,7 +623,7 @@
   </main>
 
   <script>
-    const REMOTE_API_BASE = 'https://ducpt-9router-api.onrender.com';
+    const REMOTE_API_BASE = 'https://ducpt.com';
     const API_BASES = location.protocol === 'file:'
       ? [REMOTE_API_BASE]
       : Array.from(new Set([location.origin, REMOTE_API_BASE]));
@@ -689,7 +689,7 @@
         price: 'Nếu còn phân vân về giá, nên bắt đầu bằng gói phù hợp nhu cầu thật: gói tháng cho cá nhân hoặc VIP cho team. Chi phí thấp hơn rất nhiều so với thuê thiết kế từng thumbnail.',
         quality: 'Nếu sợ ảnh không đúng ý, hãy dùng ảnh mẫu và mô tả phong cách mong muốn. App hỗ trợ bám bố cục, màu sắc, kiểu chữ và có thể tạo nhiều biến thể để chọn.',
         speed: 'Nếu mục tiêu là tiết kiệm thời gian, hãy dùng tạo hàng loạt: dán danh sách ý tưởng, app xử lý lần lượt và lưu file để chọn nhanh.',
-        security: 'Nếu quan tâm bảo mật, bản user không mở quản lý thành viên và không thấy API key. Việc tạo ảnh đi qua backend để admin kiểm soát quota.'
+        security: 'Nếu quan tâm bảo mật, bản user không mở quản lý thành viên và không thấy API key. Việc tạo ảnh đi qua máy chủ dịch vụ để admin kiểm soát quota.'
       };
       const salesAngle = goal === 'team'
         ? 'Thông điệp bán hàng nên nhấn vào quota lớn, 2 thiết bị và giảm thời gian vận hành cho team.'

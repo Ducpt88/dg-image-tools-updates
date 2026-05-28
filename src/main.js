@@ -36,8 +36,7 @@ const cloudApiBaseUrls = parseBaseUrlList(
   process.env.NINE_ROUTER_API_BASE_URLS,
   process.env.NINE_ROUTER_API_BASE_URL,
   process.env.APP_SERVER_BASE_URL,
-  'https://ducpt.com',
-  'https://ducpt-9router-api.onrender.com'
+  'https://ducpt.com'
 );
 const appServerBaseUrl = cloudApiBaseUrls[0];
 const localAppServerBaseUrl = String(process.env.LOCAL_APP_SERVER_BASE_URL || 'http://localhost:3030').replace(/\/$/, '');
@@ -273,7 +272,7 @@ const readJsonResponse = async (response) => {
   } catch {
     const message = simplifyHttpErrorBody(text);
     return {
-      message: message || `HTTP ${response.status} tu ${response.url}`,
+      message: message || `HTTP ${response.status}`,
       raw: text
     };
   }
@@ -283,6 +282,38 @@ const simplifyHttpErrorBody = (text) => String(text || '')
   .replace(/<[^>]*>/g, ' ')
   .replace(/\s+/g, ' ')
   .trim();
+
+const sanitizeUserFacingError = (message, fallback = 'Khong thuc hien duoc yeu cau. Vui long thu lai hoac lien he admin.') => {
+  const clean = String(message || '')
+    .replace(/https?:\/\/[^\s)"']+/gi, '[server]')
+    .replace(/\b(?:localhost|127\.0\.0\.1):\d+\b/gi, '[server]')
+    .replace(/\/api\/[^\s)"']+/gi, '[service]')
+    .replace(/\b(?:backend|endpoint|proxy|route|render|onrender|api key|apikey)\b/gi, 'dich vu')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  if (!clean || clean === '[server]' || clean === '[service]') {
+    return fallback;
+  }
+
+  return clean.slice(0, 240);
+};
+
+const makeServiceUnavailableError = (lastError, fallback = 'May chu dich vu chua san sang. Vui long thu lai sau hoac lien he admin.') => {
+  if (!lastError) {
+    return new Error(fallback);
+  }
+
+  if (lastError.status === 401 || lastError.status === 403) {
+    return new Error(sanitizeUserFacingError(lastError.message, 'Tai khoan khong co quyen hoac phien dang nhap da het han.'));
+  }
+
+  if (lastError.status === 400 || lastError.status === 409 || lastError.status === 429) {
+    return new Error(sanitizeUserFacingError(lastError.message, fallback));
+  }
+
+  return new Error(fallback);
+};
 
 const fetchUserApi = async (pathSuffix, options = {}) => {
   const candidates = [
@@ -317,15 +348,15 @@ const fetchUserApi = async (pathSuffix, options = {}) => {
       lastError = {
         status: 0,
         url,
-        message: error.message || 'Khong ket noi duoc backend.'
+        message: error.message || 'Khong ket noi duoc dich vu.'
       };
     }
   }
 
   const detail = lastError
-    ? `${lastError.message} (${lastError.status || 'NETWORK'} ${lastError.url})`
-    : 'Khong ket noi duoc backend.';
-  throw new Error(detail);
+    ? makeServiceUnavailableError(lastError, 'Khong dang nhap duoc. Vui long thu lai hoac lien he admin.')
+    : new Error('Khong dang nhap duoc. Vui long thu lai hoac lien he admin.');
+  throw detail;
 };
 
 const fetchCloudUserApi = async (pathSuffix, options = {}) => {
@@ -357,15 +388,15 @@ const fetchCloudUserApi = async (pathSuffix, options = {}) => {
       lastError = {
         status: 0,
         url: candidate.url,
-        message: error.message || 'Khong ket noi duoc backend cloud.'
+        message: error.message || 'Khong ket noi duoc dich vu.'
       };
     }
   }
 
   const detail = lastError
-    ? `${lastError.message} (${lastError.status || 'NETWORK'} ${lastError.url})`
-    : 'Khong ket noi duoc backend cloud.';
-  throw new Error(detail);
+    ? makeServiceUnavailableError(lastError, 'May chu dich vu chua san sang. Vui long thu lai sau hoac lien he admin.')
+    : new Error('May chu dich vu chua san sang. Vui long thu lai sau hoac lien he admin.');
+  throw detail;
 };
 
 const fetchCloudImageGeneration = async ({ payload, authToken, deviceId, signal }) => {
@@ -408,15 +439,15 @@ const fetchCloudImageGeneration = async ({ payload, authToken, deviceId, signal 
       lastError = {
         status: 0,
         url,
-        message: error.message || 'Khong ket noi duoc backend cloud.'
+        message: error.message || 'Khong ket noi duoc dich vu.'
       };
     }
   }
 
   const detail = lastError
-    ? `${lastError.message} (${lastError.status || 'NETWORK'} ${lastError.url})`
-    : 'Khong ket noi duoc backend cloud.';
-  throw new Error(detail);
+    ? makeServiceUnavailableError(lastError, 'Khong tao duoc anh. May chu dich vu dang ban hoac chua san sang.')
+    : new Error('Khong tao duoc anh. May chu dich vu dang ban hoac chua san sang.');
+  throw detail;
 };
 
 const readQuotaNumber = (data, keys) => {
@@ -1315,7 +1346,14 @@ const generateImage = async (config) => {
     if (!response.ok) {
       const detail = simplifyHttpErrorBody(rawText);
       if (response.status === 405) {
-        throw new Error(`HTTP 405: Endpoint khong cho phep POST. Kiem tra backend/proxy da deploy dung route /api/9router/user/images/generations chua. Chi tiet: ${detail || '405 Not Allowed'}`);
+        if (isUserBuild()) {
+          throw new Error('Khong tao duoc anh. May chu dich vu chua san sang.');
+        }
+        throw new Error(`HTTP 405: Dich vu tao anh chua cho phep lenh nay. Chi tiet: ${detail || '405 Not Allowed'}`);
+      }
+
+      if (isUserBuild()) {
+        throw new Error(sanitizeUserFacingError(detail, `Yeu cau tao anh that bai voi HTTP ${response.status}`));
       }
 
       throw new Error(detail || `Yêu cầu thất bại với HTTP ${response.status}`);

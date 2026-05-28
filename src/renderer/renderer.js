@@ -763,15 +763,31 @@ const summarizeError = (error) => {
     return 'Loi khong xac dinh';
   }
 
+  const cleanForDisplay = (value) => {
+    const compact = String(value || '')
+      .replace(/<[^>]*>/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+
+    if (appConfig?.app?.flavor !== 'user') {
+      return compact.slice(0, 240);
+    }
+
+    return compact
+      .replace(/https?:\/\/[^\s)"']+/gi, '[server]')
+      .replace(/\b(?:localhost|127\.0\.0\.1):\d+\b/gi, '[server]')
+      .replace(/\/api\/[^\s)"']+/gi, '[service]')
+      .replace(/\b(?:backend|endpoint|proxy|route|render|onrender|api key|apikey)\b/gi, 'dich vu')
+      .replace(/\s+/g, ' ')
+      .slice(0, 240);
+  };
+
   try {
     const parsed = JSON.parse(raw);
     const message = parsed.message || parsed.error?.message || parsed.error || raw;
-    return String(message).replace(/\s+/g, ' ').slice(0, 240);
+    return cleanForDisplay(message);
   } catch {
-    return raw
-      .replace(/<[^>]*>/g, ' ')
-      .replace(/\s+/g, ' ')
-      .slice(0, 240);
+    return cleanForDisplay(raw);
   }
 };
 
