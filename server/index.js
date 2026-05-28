@@ -32,11 +32,11 @@ const JWT_SECRET = process.env.JWT_SECRET || DEFAULT_JWT_SECRET;
 const ROUTER_PROVIDER = String(process.env.ROUTER_PROVIDER || '').trim().toLowerCase();
 const OPENAI_IMAGE_ENDPOINT = 'https://api.openai.com/v1/images/generations';
 const configuredRouterImageEndpoint = String(process.env.ROUTER_IMAGE_ENDPOINT || '').trim();
-const isOpenAiImageProvider = ROUTER_PROVIDER === 'openai'
-  || configuredRouterImageEndpoint.includes('api.openai.com');
-const ROUTER_IMAGE_ENDPOINT = isOpenAiImageProvider
-  ? (configuredRouterImageEndpoint.includes('api.openai.com') ? configuredRouterImageEndpoint : OPENAI_IMAGE_ENDPOINT)
-  : (configuredRouterImageEndpoint || 'http://localhost:20128/v1/images/generations');
+const isOpenAiImageProvider = configuredRouterImageEndpoint
+  ? configuredRouterImageEndpoint.includes('api.openai.com')
+  : ROUTER_PROVIDER === 'openai';
+const ROUTER_IMAGE_ENDPOINT = configuredRouterImageEndpoint
+  || (isOpenAiImageProvider ? OPENAI_IMAGE_ENDPOINT : 'http://localhost:20128/v1/images/generations');
 const ROUTER_IMAGE_MODEL = process.env.ROUTER_IMAGE_MODEL || (isOpenAiImageProvider ? 'gpt-image-1' : '');
 const ROUTER_QUOTA_ENDPOINT = process.env.ROUTER_QUOTA_ENDPOINT || '';
 const ROUTER_QUOTA_TOTAL = Number(process.env.ROUTER_QUOTA_TOTAL || 0);
