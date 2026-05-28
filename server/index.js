@@ -273,9 +273,8 @@ const buildCustomerEmail = ({ order, password, kind }) => {
     `Thoi han dung thu den: ${order.expiresAt}`,
     '',
     `Link huong dan: ${APP_GUIDE_URL}`,
-    `Ho tro/Zalo: ${ZALO_GROUP_URL}`,
     '',
-    'Hay dang nhap app bang email nay. Neu can ho tro tao tai khoan hoac cai app, vao nhom Zalo de duoc huong dan nhanh.'
+    'Hay dang nhap app bang email nay. Neu can ho tro tao tai khoan hoac cai app, hay phan hoi email nay de duoc huong dan.'
   ] : [
     `Xin chao ${order.customerName || ''},`,
     '',
