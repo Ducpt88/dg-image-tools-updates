@@ -66,6 +66,9 @@ const SEPAY_BANK_CODE = process.env.SEPAY_BANK_CODE || process.env.BANK_ID || 'M
 const SITE_IMAGE_URL = process.env.SITE_IMAGE_URL || 'https://ducpt.com/image';
 const APP_GUIDE_URL = process.env.APP_GUIDE_URL || SITE_IMAGE_URL;
 const ZALO_GROUP_URL = process.env.ZALO_GROUP_URL || 'https://zalo.me/g/5mnnl6aynxzvsyu5gyl5';
+const USER_APP_DOWNLOAD_URL = process.env.USER_APP_DOWNLOAD_URL || 'https://github.com/Ducpt88/dg-image-tools-releases/releases/download/v1.9.7/DG-Image-Tools-User-1.9.7-Setup-x64.exe';
+const GUIDE_VIDEO_URL = process.env.GUIDE_VIDEO_URL || 'https://youtu.be/LWln6jaNbiw';
+const SUPPORT_PHONE = process.env.SUPPORT_PHONE || '0963249467';
 const PAYMENT_IMAGES = {};
 const IMAGE_SITE_DIR = path.join(__dirname, '..', 'image');
 const USER_API = '/api/9router/user';
@@ -267,23 +270,21 @@ const escapeHtml = (value) => String(value || '')
 const buildCustomerEmailHtml = ({ order, password, kind }) => {
   const isTrial = kind === 'trial';
   const title = isTrial
-    ? 'Tài khoản dùng thử đã sẵn sàng'
-    : 'Thanh toán thành công, tài khoản đã kích hoạt';
-  const lead = isTrial
-    ? 'Bạn có thể đăng nhập app ngay bằng thông tin bên dưới. Email hướng dẫn đã được gửi tự động từ hệ thống DG Image Tools.'
-    : 'Hệ thống đã xác nhận thanh toán và kích hoạt tài khoản DG Image Tools của bạn.';
+    ? 'Chúc mừng bạn đã đăng ký sử dụng gói dùng thử 0đ DG Image Tools thành công!'
+    : 'Chúc mừng bạn đã đăng ký sử dụng DG Image Tools thành công!';
   const accent = isTrial ? '#2563eb' : '#047857';
   const heroImage = 'https://ducpt.com/image/assets/real-youtube.jpg';
   const rows = [
-    ['Gói sử dụng', order.planName],
-    ['Email đăng nhập', order.email],
-    ['Mật khẩu mặc định', password],
+    ['Tài khoản', order.email],
+    ['Mật khẩu', password],
     ['Số ảnh được tạo', order.quotaTotal],
-    ['Thời hạn sử dụng', order.expiresAt]
+    ['Thời gian sử dụng', order.expiresAt],
+    ['Link tải', USER_APP_DOWNLOAD_URL],
+    ['Link videos', GUIDE_VIDEO_URL]
   ];
   const paidCta = isTrial ? '' : `
-    <p style="margin:18px 0 8px;font-size:15px;line-height:1.6;color:#334155;">Bạn đã mua gói trả phí, hãy vào nhóm Zalo hỗ trợ để nhận thông báo và hỗ trợ nhanh khi cần.</p>
-    <a href="${escapeHtml(ZALO_GROUP_URL)}" style="display:inline-block;margin:0 0 14px;padding:12px 18px;border-radius:8px;background:#047857;color:#ffffff;text-decoration:none;font-weight:800;">Vào nhóm Zalo trả phí</a>`;
+    <p style="margin:18px 0 8px;font-size:15px;line-height:1.6;color:#334155;"><strong>Nhóm Zalo hỗ trợ trả phí:</strong></p>
+    <a href="${escapeHtml(ZALO_GROUP_URL)}" style="display:inline-block;margin:0 0 14px;padding:12px 18px;border-radius:8px;background:#047857;color:#ffffff;text-decoration:none;font-weight:800;">Vào nhóm Zalo</a>`;
 
   return `<!doctype html>
 <html lang="vi">
@@ -297,14 +298,13 @@ const buildCustomerEmailHtml = ({ order, password, kind }) => {
           <tr><td style="padding:28px 28px 10px;">
             <p style="margin:0 0 8px;color:${accent};font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;">DG Image Tools</p>
             <h1 style="margin:0 0 12px;font-size:26px;line-height:1.25;color:#0f172a;">${title}</h1>
-            <p style="margin:0 0 20px;font-size:15px;line-height:1.6;color:#334155;">Xin chào ${escapeHtml(order.customerName || 'bạn')}, ${lead}</p>
+            <p style="margin:0 0 20px;font-size:15px;line-height:1.6;color:#334155;">Xin chào ${escapeHtml(order.customerName || 'bạn')}, dưới đây là thông tin tài khoản của bạn.</p>
             <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:separate;border-spacing:0;border:1px solid #dbe3ef;border-radius:10px;overflow:hidden;">
               ${rows.map(([label, value]) => `<tr><td style="padding:12px 14px;background:#f8fafc;border-bottom:1px solid #e5edf7;width:42%;font-size:13px;color:#64748b;font-weight:700;">${escapeHtml(label)}</td><td style="padding:12px 14px;border-bottom:1px solid #e5edf7;font-size:14px;color:#0f172a;font-weight:800;">${escapeHtml(value)}</td></tr>`).join('')}
             </table>
-            <p style="margin:18px 0 8px;font-size:15px;line-height:1.6;color:#334155;">Link hướng dẫn sử dụng:</p>
-            <a href="${escapeHtml(APP_GUIDE_URL)}" style="display:inline-block;margin:0 0 14px;padding:12px 18px;border-radius:8px;background:#2563eb;color:#ffffff;text-decoration:none;font-weight:800;">Mở hướng dẫn</a>
             ${paidCta}
-            <p style="margin:14px 0 0;font-size:13px;line-height:1.6;color:#64748b;">${isTrial ? 'Gói dùng thử không bao gồm quyền vào nhóm Zalo trả phí. Nếu cần hỗ trợ cài đặt, bạn có thể phản hồi trực tiếp email này.' : 'Nếu chưa thấy email trong hộp thư đến, hãy kiểm tra mục Spam hoặc Quảng cáo.'}</p>
+            <p style="margin:18px 0 0;font-size:15px;line-height:1.6;color:#334155;">-----DG Media Holding-----</p>
+            <p style="margin:10px 0 0;font-size:15px;line-height:1.6;color:#334155;">Hãy đăng nhập app bằng email này. Nếu cần hỗ trợ tạo tài khoản hoặc cài app, nhắn trực tiếp cho Đức để được hướng dẫn nhanh: <strong>${escapeHtml(SUPPORT_PHONE)}</strong>.</p>
           </td></tr>
         </table>
       </td></tr>
@@ -317,36 +317,33 @@ const buildCustomerEmail = ({ order, password, kind }) => {
   const isTrial = kind === 'trial';
   const subject = isTrial
     ? 'Tài khoản dùng thử DG Image Tools của bạn đã sẵn sàng'
-    : 'Chúc mừng: DG Image Tools đã xác nhận thanh toán và kích hoạt tài khoản';
+    : 'Tài khoản DG Image Tools của bạn đã được kích hoạt';
   const lines = isTrial ? [
-    `Xin chào ${order.customerName || ''},`,
+    'Chúc mừng bạn đã đăng ký sử dụng gói dùng thử 0đ DG Image Tools thành công!',
     '',
-    'Bạn đã đăng ký gói dùng thử 0đ DG Image Tools thành công.',
-    '',
-    `Email đăng nhập: ${order.email}`,
-    `Mật khẩu mặc định: ${password}`,
+    `Tài khoản : ${order.email}`,
+    `Mật khẩu : ${password}`,
     `Số ảnh được tạo: ${order.quotaTotal}`,
-    `Thời hạn dùng thử đến: ${order.expiresAt}`,
+    `Thời gian sử dụng : ${order.expiresAt}`,
+    `Link tải: ${USER_APP_DOWNLOAD_URL}`,
+    `Link videos : ${GUIDE_VIDEO_URL}`,
     '',
-    `Link hướng dẫn: ${APP_GUIDE_URL}`,
-    '',
-    'Hãy đăng nhập app bằng email này. Gói dùng thử không bao gồm quyền vào nhóm Zalo trả phí. Nếu cần hỗ trợ cài app, hãy phản hồi email này.'
+    '-----DG Media Holding-----',
+    `Hãy đăng nhập app bằng email này. Nếu cần hỗ trợ tạo tài khoản hoặc cài app, nhắn trực tiếp cho Đức để được hướng dẫn nhanh ${SUPPORT_PHONE}`
   ] : [
-    `Xin chào ${order.customerName || ''},`,
-    '',
-    `Chúc mừng, hệ thống đã xác nhận thanh toán đơn ${order.code}.`,
-    'Tài khoản DG Image Tools của bạn đã được tạo/kích hoạt tự động.',
+    'Chúc mừng bạn đã đăng ký sử dụng DG Image Tools thành công!',
     '',
     `Gói: ${order.planName}`,
-    `Email đăng nhập: ${order.email}`,
-    `Mật khẩu mặc định: ${password}`,
+    `Tài khoản : ${order.email}`,
+    `Mật khẩu : ${password}`,
     `Số ảnh được tạo: ${order.quotaTotal}`,
-    `Thời hạn sử dụng đến: ${order.expiresAt}`,
+    `Thời gian sử dụng : ${order.expiresAt}`,
+    `Link tải: ${USER_APP_DOWNLOAD_URL}`,
+    `Link videos : ${GUIDE_VIDEO_URL}`,
+    `Nhóm Zalo hỗ trợ trả phí: ${ZALO_GROUP_URL}`,
     '',
-    `Vào nhóm Zalo trả phí: ${ZALO_GROUP_URL}`,
-    `Link hướng dẫn sử dụng: ${APP_GUIDE_URL}`,
-    '',
-    'Nếu cần đổi mật khẩu hoặc hỗ trợ thiết bị, hãy nhắn tin trong nhóm Zalo.'
+    '-----DG Media Holding-----',
+    `Hãy đăng nhập app bằng email này. Nếu cần hỗ trợ tạo tài khoản hoặc cài app, nhắn trực tiếp cho Đức để được hướng dẫn nhanh ${SUPPORT_PHONE}`
   ];
 
   return { subject, body: lines.join('\n'), htmlBody: buildCustomerEmailHtml({ order, password, kind }) };
