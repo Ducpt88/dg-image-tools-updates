@@ -27,7 +27,12 @@ const PORT = Number(process.env.PORT || 3030);
 const isProduction = process.env.NODE_ENV === 'production';
 const DEFAULT_JWT_SECRET = 'change-this-secret-before-production';
 const JWT_SECRET = process.env.JWT_SECRET || DEFAULT_JWT_SECRET;
-const ROUTER_IMAGE_ENDPOINT = process.env.ROUTER_IMAGE_ENDPOINT || 'http://localhost:20128/v1/images/generations';
+const ROUTER_PROVIDER = String(process.env.ROUTER_PROVIDER || '').trim().toLowerCase();
+const isOpenAiImageProvider = ROUTER_PROVIDER === 'openai'
+  || String(process.env.ROUTER_IMAGE_ENDPOINT || '').includes('api.openai.com');
+const ROUTER_IMAGE_ENDPOINT = process.env.ROUTER_IMAGE_ENDPOINT
+  || (isOpenAiImageProvider ? 'https://api.openai.com/v1/images/generations' : 'http://localhost:20128/v1/images/generations');
+const ROUTER_IMAGE_MODEL = process.env.ROUTER_IMAGE_MODEL || (isOpenAiImageProvider ? 'gpt-image-1' : '');
 const ROUTER_QUOTA_ENDPOINT = process.env.ROUTER_QUOTA_ENDPOINT || '';
 const ROUTER_QUOTA_TOTAL = Number(process.env.ROUTER_QUOTA_TOTAL || 0);
 const ROUTER_API_KEY = process.env.ROUTER_API_KEY || '';
@@ -465,6 +470,81 @@ const readQuotaNumber = (data, keys) => {
   return null;
 };
 
+const cleanObject = (value) => Object.fromEntries(
+  Object.entries(value).filter(([, item]) => item !== undefined && item !== null && item !== '')
+);
+
+const normalizeOpenAiImageSize = (value) => {
+  const sizeValue = String(value || 'auto').trim();
+  const allowed = new Set(['auto', '1024x1024', '1536x1024', '1024x1536']);
+
+  if (allowed.has(sizeValue)) {
+    return sizeValue;
+  }
+
+  const match = sizeValue.match(/^(\d+)x(\d+)$/i);
+  if (!match) {
+    return 'auto';
+  }
+
+  const width = Number(match[1]);
+  const height = Number(match[2]);
+
+  if (width > height) {
+    return '1536x1024';
+  }
+
+  if (height > width) {
+    return '1024x1536';
+  }
+
+  return '1024x1024';
+};
+
+const normalizeOpenAiImageModel = (model) => {
+  const requested = String(model || '').trim();
+
+  if (ROUTER_IMAGE_MODEL) {
+    return ROUTER_IMAGE_MODEL;
+  }
+
+  if (!requested || requested.startsWith('cx/')) {
+    return 'gpt-image-1';
+  }
+
+  return requested;
+};
+
+const buildImagePayload = (body) => {
+  if (isOpenAiImageProvider) {
+    const quality = body.quality && body.quality !== 'auto' ? body.quality : undefined;
+    const background = body.background && body.background !== 'auto' ? body.background : undefined;
+
+    return cleanObject({
+      model: normalizeOpenAiImageModel(body.model),
+      prompt: body.prompt,
+      n: body.n || 1,
+      size: normalizeOpenAiImageSize(body.size),
+      quality,
+      background,
+      output_format: body.output_format || 'png',
+      image: body.image
+    });
+  }
+
+  return cleanObject({
+    model: body.model,
+    prompt: body.prompt,
+    n: body.n || 1,
+    size: normalizeImageSize(body.size),
+    quality: body.quality,
+    background: body.background,
+    image_detail: body.image_detail,
+    output_format: body.output_format,
+    image: body.image
+  });
+};
+
 const parseRouterQuota = (data, fallbackUsed = 0) => {
   const quotaTotal = readQuotaNumber(data, [
     'quotaTotal',
@@ -608,27 +688,14 @@ const imageGenerationHandler = async (req, res) => {
       throw new Error('Server chưa cấu hình ROUTER_API_KEY.');
     }
 
-    const payload = {
-      model: req.body.model,
-      prompt: req.body.prompt,
-      n: req.body.n || 1,
-      size: normalizeImageSize(req.body.size),
-      quality: req.body.quality,
-      background: req.body.background,
-      image_detail: req.body.image_detail,
-      output_format: req.body.output_format
-    };
-
-    if (req.body.image) {
-      payload.image = req.body.image;
-    }
+    const payload = buildImagePayload(req.body);
 
     const upstream = await fetch(ROUTER_IMAGE_ENDPOINT, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${ROUTER_API_KEY}`,
-        Accept: 'text/event-stream'
+        Accept: isOpenAiImageProvider ? 'application/json' : 'text/event-stream'
       },
       body: JSON.stringify(payload)
     });

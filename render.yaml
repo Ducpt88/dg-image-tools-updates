@@ -29,6 +29,10 @@ services:
         sync: false
       - key: ROUTER_API_KEY
         sync: false
+      - key: ROUTER_PROVIDER
+        value: openai
+      - key: ROUTER_IMAGE_MODEL
+        value: gpt-image-1
       - key: SHEETS_WEBHOOK_URL
         sync: false
       - key: SECURITY_ALERT_WEBHOOK_URL
