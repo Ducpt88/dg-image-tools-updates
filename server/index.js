@@ -725,6 +725,31 @@ const meHandler = (req, res) => {
   res.json({ user: publicUser(req.user) });
 };
 
+const rawRouterImageProxyHandler = async (req, res) => {
+  try {
+    const header = req.get('authorization') || '';
+    const token = header.startsWith('Bearer ') ? header.slice(7) : '';
+
+    if (!ROUTER_API_KEY || token !== ROUTER_API_KEY) {
+      return res.status(401).json({ message: 'Unauthorized.' });
+    }
+
+    const upstream = await fetch(ROUTER_IMAGE_ENDPOINT, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${ROUTER_API_KEY}`,
+        Accept: isOpenAiImageProvider ? 'application/json' : 'text/event-stream'
+      },
+      body: JSON.stringify(req.body || {})
+    });
+    const rawText = await upstream.text();
+    return res.status(upstream.status).type(upstream.headers.get('content-type') || 'application/json').send(rawText);
+  } catch (error) {
+    return res.status(502).json({ message: getFetchErrorMessage(error) || error.message });
+  }
+};
+
 const imageGenerationHandler = async (req, res) => {
   const deviceId = req.body.deviceId || req.get('x-device-id') || null;
 
@@ -983,6 +1008,7 @@ const sepayWebhookHandler = async (req, res) => {
 
 app.post(`${USER_API}/auth/login`, loginHandler);
 app.get(`${USER_API}/auth/me`, requireAuth, meHandler);
+app.post('/v1/images/generations', rawRouterImageProxyHandler);
 app.post(`${USER_API}/images/generations`, requireAuth, imageGenerationHandler);
 
 app.get(`${ADMIN_API}/stats`, allowLocalAdmin, requireAdminAccess, statsHandler);
