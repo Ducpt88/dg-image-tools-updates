@@ -70,8 +70,8 @@ const IMAGE_SITE_DIR = path.join(__dirname, '..', 'image');
 const USER_API = '/api/9router/user';
 const ADMIN_API = '/api/9router/admin';
 const LOCAL_ADMIN_HOSTS = new Set(['localhost', '127.0.0.1', '::1']);
-const ADMIN_PAGE_USER = String(process.env.ADMIN_PAGE_USER || process.env.ADMIN_EMAIL || 'admin').trim();
-const ADMIN_PAGE_PASSWORD = String(process.env.ADMIN_PAGE_PASSWORD || process.env.ADMIN_PASSWORD || 'image-dg09');
+const ADMIN_PAGE_USER = String(process.env.ADMIN_PAGE_USER || 'admin@example.com').trim();
+const ADMIN_PAGE_PASSWORD = String(process.env.ADMIN_PAGE_PASSWORD || 'image-dg09');
 const ADMIN_PAGE_PROTECTION_ENABLED = process.env.ADMIN_PAGE_PROTECTION !== 'false';
 const ADMIN_2FA_ISSUER = process.env.ADMIN_2FA_ISSUER || 'DG Image Tools Admin';
 
