@@ -273,7 +273,7 @@ const buildCustomerEmailHtml = ({ order, password, kind }) => {
     ? 'Chúc mừng bạn đã đăng ký sử dụng gói dùng thử 0đ DG Image Tools thành công!'
     : 'Chúc mừng bạn đã đăng ký sử dụng DG Image Tools thành công!';
   const accent = isTrial ? '#2563eb' : '#047857';
-  const heroImage = 'https://ducpt.com/image/assets/real-youtube.jpg';
+  const appLogo = 'https://ducpt.com/image/assets/dg-image-tools-icon.png';
   const rows = [
     ['Tài khoản', order.email],
     ['Mật khẩu', password],
@@ -292,11 +292,11 @@ const buildCustomerEmailHtml = ({ order, password, kind }) => {
     <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f3f6fb;padding:24px 0;">
       <tr><td align="center">
         <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:640px;background:#ffffff;border:1px solid #dbe3ef;border-radius:12px;overflow:hidden;">
-          <tr><td>
-            <img src="${heroImage}" alt="DG Image Tools" width="640" style="display:block;width:100%;max-height:210px;object-fit:cover;border:0;">
-          </td></tr>
           <tr><td style="padding:28px 28px 10px;">
-            <p style="margin:0 0 8px;color:${accent};font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;">DG Image Tools</p>
+            <table role="presentation" cellspacing="0" cellpadding="0" style="margin:0 0 14px;"><tr>
+              <td><img src="${appLogo}" alt="DG Image Tools" width="42" height="42" style="display:block;width:42px;height:42px;border-radius:8px;border:0;"></td>
+              <td style="padding-left:10px;color:${accent};font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;">DG Image Tools</td>
+            </tr></table>
             <h1 style="margin:0 0 12px;font-size:26px;line-height:1.25;color:#0f172a;">${title}</h1>
             <p style="margin:0 0 20px;font-size:15px;line-height:1.6;color:#334155;">Xin chào ${escapeHtml(order.customerName || 'bạn')}, dưới đây là thông tin tài khoản của bạn.</p>
             <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:separate;border-spacing:0;border:1px solid #dbe3ef;border-radius:10px;overflow:hidden;">
