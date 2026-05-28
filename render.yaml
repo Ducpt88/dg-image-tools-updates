@@ -42,10 +42,10 @@ services:
       - key: SALES_SHEET_ID
         value: 1YL2mY6uYJCNrLASNjev7g7XDiPYVi4wBy8S_V7Ntlzg
       - key: BANK_ACCOUNT_NO
-        value: PSP2610910700000069
+        value: 5550124510199
       - key: BANK_ACCOUNT_NAME
         value: Hoang Van Duc
       - key: SEPAY_BANK_CODE
-        value: VPB
+        value: MB
       - key: SITE_IMAGE_URL
         value: https://ducpt.com/image

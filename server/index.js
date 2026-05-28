@@ -58,9 +58,9 @@ const SHEETS_WEBHOOK_URL = process.env.SHEETS_WEBHOOK_URL || '';
 const ADMIN_ALERT_EMAIL = process.env.ADMIN_ALERT_EMAIL || 'hoangvant77internet@gmail.com';
 const SALES_SHEET_ID = process.env.SALES_SHEET_ID || '1YL2mY6uYJCNrLASNjev7g7XDiPYVi4wBy8S_V7Ntlzg';
 const BANK_ID = process.env.BANK_ID || '';
-const BANK_ACCOUNT_NO = process.env.BANK_ACCOUNT_NO || 'PSP2610910700000069';
+const BANK_ACCOUNT_NO = process.env.BANK_ACCOUNT_NO || '5550124510199';
 const BANK_ACCOUNT_NAME = process.env.BANK_ACCOUNT_NAME || 'Hoang Van Duc';
-const SEPAY_BANK_CODE = process.env.SEPAY_BANK_CODE || process.env.BANK_ID || 'VPB';
+const SEPAY_BANK_CODE = process.env.SEPAY_BANK_CODE || process.env.BANK_ID || 'MB';
 const SITE_IMAGE_URL = process.env.SITE_IMAGE_URL || 'https://ducpt.com/image';
 const APP_GUIDE_URL = process.env.APP_GUIDE_URL || SITE_IMAGE_URL;
 const ZALO_GROUP_URL = process.env.ZALO_GROUP_URL || 'https://zalo.me/g/5mnnl6aynxzvsyu5gyl5';
@@ -530,17 +530,23 @@ const signToken = (user) => jwt.sign(
 
 const sendSheetEvent = async (event) => {
   if (!SHEETS_WEBHOOK_URL) {
-    return;
+    return false;
   }
 
   try {
-    await fetch(SHEETS_WEBHOOK_URL, {
+    const response = await fetch(SHEETS_WEBHOOK_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(event)
     });
+    if (!response.ok) {
+      console.error('Sheet webhook failed:', response.status, await response.text().catch(() => ''));
+      return false;
+    }
+    return true;
   } catch (error) {
     console.error('Sheet webhook failed:', error.message);
+    return false;
   }
 };
 
@@ -553,7 +559,7 @@ const sendSecurityAlert = async (event) => sendSheetEvent({
 
 const sendCustomerEmail = async ({ order, password, kind }) => {
   const email = buildCustomerEmail({ order, password, kind });
-  await sendSheetEvent({
+  const sent = await sendSheetEvent({
     type: 'customer_email',
     sheetId: SALES_SHEET_ID,
     to: order.email,
@@ -565,7 +571,7 @@ const sendCustomerEmail = async ({ order, password, kind }) => {
     subject: email.subject,
     body: email.body
   });
-  return { ...email, sentAt: new Date().toISOString() };
+  return { ...email, sent, sentAt: sent ? new Date().toISOString() : null };
 };
 
 const activateOrderAccount = async (order, kind) => {
