@@ -11,11 +11,17 @@ const createUserForm = document.querySelector('#createUser');
 const createStatus = document.querySelector('#createStatus');
 const usersBody = document.querySelector('#usersBody');
 const eventsBody = document.querySelector('#eventsBody');
+const userSearch = document.querySelector('#userSearch');
+const statusFilter = document.querySelector('#statusFilter');
+const roleFilter = document.querySelector('#roleFilter');
+const agentInsights = document.querySelector('#agentInsights');
 const USER_API = '/api/9router/user';
 const ADMIN_API = '/api/9router/admin';
 
 let token = localStorage.getItem('adminToken') || '';
 let currentAdmin = null;
+let cachedUsers = [];
+let cachedEvents = [];
 
 const api = async (path, options = {}) => {
   const response = await fetch(path, {
@@ -30,7 +36,7 @@ const api = async (path, options = {}) => {
   const body = text ? JSON.parse(text) : {};
 
   if (!response.ok) {
-    throw new Error(body.message || 'Yeu cau that bai.');
+    throw new Error(body.message || 'Yêu cầu thất bại.');
   }
 
   return body;
@@ -39,17 +45,16 @@ const api = async (path, options = {}) => {
 const setLoggedIn = (loggedIn, user = null) => {
   loginView.classList.toggle('hidden', loggedIn);
   dashboardView.classList.toggle('hidden', !loggedIn);
-  adminEmail.textContent = user?.email || '';
+  adminEmail.textContent = user?.email || 'Đang quản lý hệ thống';
   logoutButton.hidden = !loggedIn;
 };
 
 const formatDate = (value) => value ? new Date(value).toLocaleString('vi-VN') : '-';
+const formatShortDate = (value) => value ? new Date(value).toLocaleDateString('vi-VN') : '-';
 
 const appendTextCell = (row, value, className = '') => {
   const cell = document.createElement('td');
-  if (className) {
-    cell.className = className;
-  }
+  if (className) cell.className = className;
   cell.textContent = value == null || value === '' ? '-' : String(value);
   return row.appendChild(cell);
 };
@@ -70,6 +75,133 @@ const renderStatusPill = (text, blocked = false) => {
   return pill;
 };
 
+const getDaysLeft = (expiresAt) => {
+  if (!expiresAt) return null;
+  return Math.ceil((new Date(expiresAt).getTime() - Date.now()) / 86400000);
+};
+
+const getFilteredUsers = () => {
+  const query = userSearch.value.trim().toLowerCase();
+  const status = statusFilter.value;
+  const role = roleFilter.value;
+  return cachedUsers.filter((user) => {
+    if (query && !String(user.email || '').includes(query)) return false;
+    if (status !== 'all' && user.status !== status) return false;
+    if (role !== 'all' && user.role !== role) return false;
+    return true;
+  });
+};
+
+const renderQuotaCell = (row, user) => {
+  const used = Number(user.quotaUsed || 0);
+  const total = Number(user.quotaTotal || 0);
+  const remaining = Math.max(0, total - used);
+  const ratio = total > 0 ? Math.min(100, Math.round((used / total) * 100)) : 100;
+  const cell = document.createElement('td');
+  cell.innerHTML = `
+    <div class="quota-line"><strong>${remaining}</strong><span>còn lại</span></div>
+    <div class="meter"><span style="width:${ratio}%"></span></div>
+    <div class="muted-text">Đã dùng ${used}/${total}</div>
+  `;
+  row.append(cell);
+};
+
+const renderUsers = () => {
+  const users = getFilteredUsers();
+  usersBody.replaceChildren(...users.map((user) => {
+    const row = document.createElement('tr');
+    const daysLeft = getDaysLeft(user.expiresAt);
+    const isExpired = daysLeft !== null && daysLeft < 0;
+
+    appendTextCell(row, user.email, 'email-cell');
+    appendTextCell(row, user.role === 'admin' ? 'Admin' : 'User');
+
+    const statusCell = document.createElement('td');
+    statusCell.append(renderStatusPill(user.status === 'active' ? 'Đang hoạt động' : 'Đã khóa', user.status !== 'active'));
+    row.append(statusCell);
+
+    renderQuotaCell(row, user);
+    appendTextCell(row, Number(user.durationDays || 0) ? `${user.durationDays} ngày` : 'Không giới hạn');
+    appendTextCell(row, formatShortDate(user.activatedAt));
+    appendTextCell(row, user.expiresAt ? `${formatShortDate(user.expiresAt)}${isExpired ? ' · đã hết hạn' : daysLeft !== null ? ` · còn ${daysLeft} ngày` : ''}` : 'Chưa kích hoạt');
+    appendTextCell(row, `${(user.devices || []).length}/${user.deviceLimit}`);
+    appendTextCell(row, formatDate(user.lastLoginAt));
+
+    const actionsCell = document.createElement('td');
+    const actions = document.createElement('div');
+    actions.className = 'row-actions';
+    if (user.id === currentAdmin?.id) {
+      const currentPill = document.createElement('span');
+      currentPill.className = 'pill';
+      currentPill.textContent = 'Đang đăng nhập';
+      actions.append(currentPill);
+    } else {
+      actions.append(
+        actionButton(user.status === 'active' ? 'Khóa' : 'Mở khóa', 'danger', () => updateUser(user.id, { status: user.status === 'active' ? 'blocked' : 'active' })),
+        actionButton('Reset quota', 'secondary', () => updateUser(user.id, { quotaUsed: 0 })),
+        actionButton('Xóa thiết bị', 'secondary', () => updateUser(user.id, { clearDevices: true })),
+        actionButton('+100 quota', 'secondary', () => updateUser(user.id, { quotaTotal: Number(user.quotaTotal || 0) + 100 }))
+      );
+    }
+    actionsCell.append(actions);
+    row.append(actionsCell);
+    return row;
+  }));
+};
+
+const renderEvents = (events) => {
+  eventsBody.replaceChildren(...events.map((event) => {
+    const row = document.createElement('tr');
+    appendTextCell(row, formatDate(event.createdAt));
+    appendTextCell(row, event.email || '-');
+
+    const statusCell = document.createElement('td');
+    statusCell.append(renderStatusPill(event.ok ? 'Thành công' : 'Lỗi', !event.ok));
+    row.append(statusCell);
+
+    appendTextCell(row, event.deviceId || '-');
+    const promptCell = appendTextCell(row, event.error || event.prompt || '', 'prompt-cell');
+    promptCell.title = event.error || event.prompt || '';
+    return row;
+  }));
+};
+
+const renderAgentInsights = () => {
+  const lowQuota = cachedUsers.filter((user) => user.role !== 'admin' && Math.max(0, Number(user.quotaTotal || 0) - Number(user.quotaUsed || 0)) <= 5);
+  const expiring = cachedUsers.filter((user) => {
+    const daysLeft = getDaysLeft(user.expiresAt);
+    return user.role !== 'admin' && daysLeft !== null && daysLeft >= 0 && daysLeft <= 3;
+  });
+  const inactive = cachedUsers.filter((user) => user.role !== 'admin' && !user.activatedAt && user.status === 'active');
+  const recentFailures = cachedEvents.filter((event) => !event.ok).slice(0, 5);
+  const items = [
+    { level: lowQuota.length ? 'warning' : 'ok', title: 'Quota thấp', text: lowQuota.length ? `${lowQuota.length} tài khoản còn từ 5 ảnh trở xuống.` : 'Quota thành viên đang ổn.' },
+    { level: expiring.length ? 'warning' : 'ok', title: 'Sắp hết hạn', text: expiring.length ? `${expiring.length} tài khoản hết hạn trong 3 ngày tới.` : 'Chưa có tài khoản sắp hết hạn.' },
+    { level: inactive.length ? 'info' : 'ok', title: 'Chưa kích hoạt', text: inactive.length ? `${inactive.length} tài khoản đã cấp nhưng thành viên chưa dùng lần đầu.` : 'Tài khoản đã cấp đều đã có hoạt động.' },
+    { level: recentFailures.length ? 'danger' : 'ok', title: 'Lỗi gần đây', text: recentFailures.length ? `${recentFailures.length} lỗi mới nhất cần kiểm tra trong lịch sử tạo ảnh.` : 'Không có lỗi mới trong danh sách gần đây.' }
+  ];
+
+  agentInsights.replaceChildren(...items.map((item) => {
+    const card = document.createElement('article');
+    card.className = `insight ${item.level}`;
+    card.innerHTML = `<strong>${item.title}</strong><span>${item.text}</span>`;
+    return card;
+  }));
+};
+
+const loadRouterQuota = async () => {
+  try {
+    const quota = await api(`${ADMIN_API}/router-quota`);
+    const remaining = quota.quotaRemaining == null ? '-' : Number(quota.quotaRemaining).toLocaleString('vi-VN');
+    const total = quota.quotaTotal == null ? '' : ` / ${Number(quota.quotaTotal).toLocaleString('vi-VN')}`;
+    document.querySelector('#statRouterQuota').textContent = `${remaining}${total}`;
+    document.querySelector('#routerQuotaSource').textContent = quota.source === '9router' ? 'Theo 9Router' : 'Theo cấu hình/backend';
+  } catch (error) {
+    document.querySelector('#statRouterQuota').textContent = '-';
+    document.querySelector('#routerQuotaSource').textContent = error.message;
+  }
+};
+
 const loginAdmin = async ({ email, password }) => {
   const result = await api(`${USER_API}/auth/login`, {
     method: 'POST',
@@ -81,7 +213,7 @@ const loginAdmin = async ({ email, password }) => {
   });
 
   if (result.user?.role !== 'admin') {
-    throw new Error('Tai khoan nay khong co quyen admin.');
+    throw new Error('Tài khoản này không có quyền admin.');
   }
 
   token = result.token;
@@ -91,13 +223,10 @@ const loginAdmin = async ({ email, password }) => {
 };
 
 const loadCurrentAdmin = async () => {
-  if (!token) {
-    return null;
-  }
-
+  if (!token) return null;
   const result = await api(`${USER_API}/auth/me`);
   if (result.user?.role !== 'admin') {
-    throw new Error('Token hien tai khong co quyen admin.');
+    throw new Error('Token hiện tại không có quyền admin.');
   }
   currentAdmin = result.user;
   return result.user;
@@ -110,65 +239,19 @@ const loadDashboard = async () => {
     api(`${ADMIN_API}/events?limit=200`)
   ]);
 
+  cachedUsers = users.users || [];
+  cachedEvents = events.events || [];
   setLoggedIn(true, currentAdmin);
   document.querySelector('#statUsers').textContent = stats.users;
   document.querySelector('#statActive').textContent = stats.activeUsers;
   document.querySelector('#statImages').textContent = stats.imagesCreated;
   document.querySelector('#statToday').textContent = stats.imagesToday;
   document.querySelector('#statFailures').textContent = stats.failures;
-  renderUsers(users.users);
-  renderEvents(events.events);
-};
-
-const renderUsers = (users) => {
-  usersBody.replaceChildren(...users.map((user) => {
-    const row = document.createElement('tr');
-    const remaining = Math.max(0, Number(user.quotaTotal || 0) - Number(user.quotaUsed || 0));
-
-    appendTextCell(row, user.email);
-    appendTextCell(row, user.role);
-
-    const statusCell = document.createElement('td');
-    statusCell.append(renderStatusPill(user.status, user.status !== 'active'));
-    row.append(statusCell);
-
-    appendTextCell(row, `${user.quotaUsed}/${user.quotaTotal} con ${remaining}`);
-    appendTextCell(row, Number(user.durationDays || 0) ? `${user.durationDays} ngay` : '-');
-    appendTextCell(row, formatDate(user.activatedAt));
-    appendTextCell(row, formatDate(user.expiresAt));
-    appendTextCell(row, `${(user.devices || []).length}/${user.deviceLimit}`);
-    appendTextCell(row, formatDate(user.lastLoginAt));
-
-    const actionsCell = document.createElement('td');
-    const actions = document.createElement('div');
-    actions.className = 'row-actions';
-    actions.append(
-      actionButton(user.status === 'active' ? 'Khoa' : 'Mo', 'danger', () => updateUser(user.id, { status: user.status === 'active' ? 'blocked' : 'active' })),
-      actionButton('Reset quota', 'secondary', () => updateUser(user.id, { quotaUsed: 0 })),
-      actionButton('Xoa thiet bi', 'secondary', () => updateUser(user.id, { clearDevices: true })),
-      actionButton('+100 quota', 'secondary', () => updateUser(user.id, { quotaTotal: Number(user.quotaTotal || 0) + 100 }))
-    );
-    actionsCell.append(actions);
-    row.append(actionsCell);
-    return row;
-  }));
-};
-
-const renderEvents = (events) => {
-  eventsBody.replaceChildren(...events.map((event) => {
-    const row = document.createElement('tr');
-    appendTextCell(row, formatDate(event.createdAt));
-    appendTextCell(row, event.email);
-
-    const statusCell = document.createElement('td');
-    statusCell.append(renderStatusPill(event.ok ? 'OK' : 'Loi', !event.ok));
-    row.append(statusCell);
-
-    appendTextCell(row, event.deviceId || '-');
-    const promptCell = appendTextCell(row, event.error || event.prompt || '', 'prompt-cell');
-    promptCell.title = event.error || event.prompt || '';
-    return row;
-  }));
+  document.querySelector('#lastUpdated').textContent = `Cập nhật ${new Date().toLocaleTimeString('vi-VN')}`;
+  renderUsers();
+  renderEvents(cachedEvents);
+  renderAgentInsights();
+  await loadRouterQuota();
 };
 
 const updateUser = async (id, changes) => {
@@ -179,15 +262,25 @@ const updateUser = async (id, changes) => {
   await loadDashboard();
 };
 
+document.querySelectorAll('.preset').forEach((button) => {
+  button.addEventListener('click', () => {
+    document.querySelector('#newQuota').value = button.dataset.quota;
+    document.querySelector('#newDurationDays').value = button.dataset.days;
+    document.querySelector('#newDeviceLimit').value = button.dataset.devices;
+  });
+});
+
+[userSearch, statusFilter, roleFilter].forEach((control) => {
+  control.addEventListener('input', renderUsers);
+  control.addEventListener('change', renderUsers);
+});
+
 adminLogin.addEventListener('submit', async (event) => {
   event.preventDefault();
-  loginStatus.textContent = 'Dang dang nhap...';
+  loginStatus.textContent = 'Đang đăng nhập...';
 
   try {
-    await loginAdmin({
-      email: emailInput.value.trim(),
-      password: passwordInput.value
-    });
+    await loginAdmin({ email: emailInput.value.trim(), password: passwordInput.value });
     passwordInput.value = '';
     loginStatus.textContent = '';
     await loadDashboard();
@@ -201,7 +294,7 @@ adminLogin.addEventListener('submit', async (event) => {
 
 createUserForm.addEventListener('submit', async (event) => {
   event.preventDefault();
-  createStatus.textContent = 'Dang them...';
+  createStatus.textContent = 'Đang thêm...';
 
   try {
     await api(`${ADMIN_API}/users`, {
@@ -220,7 +313,7 @@ createUserForm.addEventListener('submit', async (event) => {
     document.querySelector('#newQuota').value = 100;
     document.querySelector('#newDurationDays').value = 30;
     document.querySelector('#newDeviceLimit').value = 1;
-    createStatus.textContent = 'Da them.';
+    createStatus.textContent = 'Đã thêm tài khoản.';
     await loadDashboard();
   } catch (error) {
     createStatus.textContent = error.message;
@@ -235,19 +328,15 @@ logoutButton.addEventListener('click', () => {
 });
 
 refreshButton.addEventListener('click', () => {
-  loadDashboard().catch((error) => {
-    adminEmail.textContent = error.message;
-  });
+  refreshButton.disabled = true;
+  loadDashboard()
+    .catch((error) => { adminEmail.textContent = error.message; })
+    .finally(() => { refreshButton.disabled = false; });
 });
 
 setLoggedIn(false);
 loadCurrentAdmin()
-  .then((user) => {
-    if (user) {
-      return loadDashboard();
-    }
-    return null;
-  })
+  .then((user) => user ? loadDashboard() : null)
   .catch(() => {
     token = '';
     currentAdmin = null;

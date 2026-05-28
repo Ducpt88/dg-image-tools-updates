@@ -3,75 +3,114 @@
   <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>9Router Admin</title>
+    <title>DG Image Tools Admin</title>
+    <link rel="icon" href="./icon.png">
     <link rel="stylesheet" href="./styles.css">
   </head>
   <body>
     <main class="admin-shell">
       <section id="loginView" class="login-view">
         <form id="adminLogin" class="login-panel">
-          <h1>9Router Admin</h1>
+          <div class="brand-lockup large">
+            <img class="brand-logo" src="./icon.png" alt="DG Image Tools">
+            <div>
+              <h1>DG Image Tools Admin</h1>
+              <p>Quản trị thành viên, quota và hoạt động tạo ảnh</p>
+            </div>
+          </div>
           <label>
             <span>Email admin</span>
-            <input id="email" type="email" required>
+            <input id="email" type="email" autocomplete="username" required>
           </label>
           <label>
             <span>Mật khẩu</span>
-            <input id="password" type="password" required>
+            <input id="password" type="password" autocomplete="current-password" required>
           </label>
           <button type="submit">Đăng nhập</button>
-          <p id="loginStatus"></p>
+          <p id="loginStatus" class="status-text"></p>
         </form>
       </section>
 
       <section id="dashboardView" class="dashboard-view hidden">
         <header class="topbar">
-          <div>
-            <h1>9Router Admin</h1>
-            <p id="adminEmail">Đang quản lý hệ thống</p>
+          <div class="brand-lockup">
+            <img class="brand-logo" src="./icon.png" alt="DG Image Tools">
+            <div>
+              <h1>DG Image Tools Admin</h1>
+              <p id="adminEmail">Đang quản lý hệ thống</p>
+            </div>
           </div>
-          <button id="logout" type="button">Đăng xuất</button>
+          <div class="topbar-actions">
+            <span id="lastUpdated" class="muted-text">Chưa cập nhật</span>
+            <button id="refresh" class="secondary" type="button">Cập nhật</button>
+            <button id="logout" class="danger" type="button">Đăng xuất</button>
+          </div>
         </header>
 
-        <section class="stats-grid">
-          <article><span>Tài khoản</span><strong id="statUsers">0</strong></article>
-          <article><span>Đang hoạt động</span><strong id="statActive">0</strong></article>
-          <article><span>Ảnh đã tạo</span><strong id="statImages">0</strong></article>
-          <article><span>Hôm nay</span><strong id="statToday">0</strong></article>
-          <article><span>Lỗi</span><strong id="statFailures">0</strong></article>
+        <section class="stats-grid" aria-label="Tổng quan vận hành">
+          <article><span>Tài khoản</span><strong id="statUsers">0</strong><small>Tổng thành viên</small></article>
+          <article><span>Đang hoạt động</span><strong id="statActive">0</strong><small>Có thể sử dụng app</small></article>
+          <article><span>Ảnh đã tạo</span><strong id="statImages">0</strong><small>Render thành công</small></article>
+          <article><span>Hôm nay</span><strong id="statToday">0</strong><small>Lượt tạo ảnh trong ngày</small></article>
+          <article><span>Lỗi</span><strong id="statFailures">0</strong><small>Cần kiểm tra</small></article>
+          <article><span>Quota 9Router</span><strong id="statRouterQuota">-</strong><small id="routerQuotaSource">Đang chờ dữ liệu</small></article>
+        </section>
+
+        <section class="ops-grid">
+          <section class="panel account-panel">
+            <header class="panel-title">
+              <div>
+                <h2>Cấp tài khoản thành viên</h2>
+                <p>Tài khoản chỉ bắt đầu tính ngày khi thành viên đăng nhập hoặc tạo ảnh lần đầu.</p>
+              </div>
+              <span id="createStatus" class="status-text"></span>
+            </header>
+            <form id="createUser" class="create-grid">
+              <label class="wide"><span>Email thành viên</span><input id="newEmail" type="email" placeholder="member@example.com" required></label>
+              <label><span>Mật khẩu</span><input id="newPassword" type="password" placeholder="Mật khẩu" required></label>
+              <label><span>Quota ảnh</span><input id="newQuota" type="number" min="0" value="100" placeholder="100"></label>
+              <label><span>Số ngày dùng</span><input id="newDurationDays" type="number" min="0" value="30" placeholder="30"></label>
+              <label><span>Hết hạn cố định</span><input id="newExpiresAt" type="date"></label>
+              <label><span>Thiết bị</span><input id="newDeviceLimit" type="number" min="1" value="1" placeholder="1"></label>
+              <label><span>Quyền</span><select id="newRole"><option value="user">User</option><option value="admin">Admin</option></select></label>
+              <button type="submit">Thêm tài khoản</button>
+            </form>
+            <div class="preset-row" aria-label="Gói nhanh">
+              <button class="secondary preset" type="button" data-quota="10" data-days="7" data-devices="1">Dùng thử</button>
+              <button class="secondary preset" type="button" data-quota="100" data-days="30" data-devices="1">Gói tháng</button>
+              <button class="secondary preset" type="button" data-quota="300" data-days="30" data-devices="2">VIP</button>
+            </div>
+          </section>
+
+          <aside class="panel agent-panel">
+            <header class="panel-title compact">
+              <div>
+                <h2>Agent vận hành</h2>
+                <p>Tự rà soát quota, thời hạn và lỗi gần đây.</p>
+              </div>
+            </header>
+            <div id="agentInsights" class="agent-insights"></div>
+          </aside>
         </section>
 
         <section class="panel">
-          <header class="panel-title">
-            <h2>Thêm tài khoản</h2>
-            <span id="createStatus"></span>
-          </header>
-          <form id="createUser" class="create-grid">
-            <input id="newEmail" type="email" placeholder="Email" required>
-            <input id="newPassword" type="password" placeholder="Mật khẩu" required>
-            <input id="newQuota" type="number" min="0" value="100" placeholder="Quota">
-            <input id="newDurationDays" type="number" min="0" value="30" placeholder="Số ngày dùng">
-            <input id="newExpiresAt" type="date">
-            <input id="newDeviceLimit" type="number" min="1" value="1" placeholder="Thiết bị">
-            <select id="newRole">
-              <option value="user">User</option>
-              <option value="admin">Admin</option>
-            </select>
-            <button type="submit">Thêm</button>
-          </form>
-        </section>
-
-        <section class="panel">
-          <header class="panel-title">
-            <h2>Danh sách tài khoản</h2>
-            <button id="refresh" type="button">Cập nhật</button>
+          <header class="panel-title toolbar-title">
+            <div>
+              <h2>Danh sách tài khoản</h2>
+              <p>Quản lý trạng thái, quota, thiết bị và thời hạn sử dụng.</p>
+            </div>
+            <div class="table-tools">
+              <input id="userSearch" type="search" placeholder="Tìm email...">
+              <select id="statusFilter"><option value="all">Tất cả trạng thái</option><option value="active">Đang hoạt động</option><option value="blocked">Đã khóa</option></select>
+              <select id="roleFilter"><option value="all">Tất cả quyền</option><option value="user">User</option><option value="admin">Admin</option></select>
+            </div>
           </header>
           <div class="table-wrap">
             <table>
               <thead>
                 <tr>
                   <th>Email</th>
-                  <th>Role</th>
+                  <th>Quyền</th>
                   <th>Trạng thái</th>
                   <th>Quota</th>
                   <th>Ngày dùng</th>
@@ -89,10 +128,13 @@
 
         <section class="panel">
           <header class="panel-title">
-            <h2>Lịch sử tạo ảnh</h2>
+            <div>
+              <h2>Lịch sử tạo ảnh</h2>
+              <p>Theo dõi render thành công, lỗi và thiết bị sử dụng.</p>
+            </div>
           </header>
           <div class="table-wrap">
-            <table>
+            <table class="events-table">
               <thead>
                 <tr>
                   <th>Thời gian</th>
