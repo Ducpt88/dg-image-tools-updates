@@ -36,7 +36,7 @@ const cloudApiBaseUrls = parseBaseUrlList(
   process.env.NINE_ROUTER_API_BASE_URLS,
   process.env.NINE_ROUTER_API_BASE_URL,
   process.env.APP_SERVER_BASE_URL,
-  'https://ducpt.com'
+  'https://api.ducpt.com'
 );
 const appServerBaseUrl = cloudApiBaseUrls[0];
 const localAppServerBaseUrl = String(process.env.LOCAL_APP_SERVER_BASE_URL || 'http://localhost:3030').replace(/\/$/, '');

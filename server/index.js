@@ -68,6 +68,7 @@ app.use(express.json({ limit: '2mb' }));
 app.use((req, res, next) => {
   const origin = req.get('origin') || '';
   const allowedOrigins = new Set([
+    'https://api.ducpt.com',
     'https://ducpt.com',
     'https://www.ducpt.com',
     'http://localhost:3030'
@@ -78,8 +79,8 @@ app.use((req, res, next) => {
     res.setHeader('Vary', 'Origin');
   }
 
-  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization');
+  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PATCH,OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization,X-Device-Id');
 
   if (req.method === 'OPTIONS') {
     return res.sendStatus(204);

@@ -37,3 +37,5 @@ services:
         value: hoangvant77internet@gmail.com
       - key: SALES_SHEET_ID
         value: 1YL2mY6uYJCNrLASNjev7g7XDiPYVi4wBy8S_V7Ntlzg
+      - key: SITE_IMAGE_URL
+        value: https://ducpt.com/image
