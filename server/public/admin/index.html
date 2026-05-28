@@ -76,9 +76,9 @@
               <button type="submit">Thêm tài khoản</button>
             </form>
             <div class="preset-row" aria-label="Gói nhanh">
-              <button class="secondary preset" type="button" data-quota="10" data-days="7" data-devices="1">Dùng thử</button>
-              <button class="secondary preset" type="button" data-quota="100" data-days="30" data-devices="1">Gói tháng</button>
-              <button class="secondary preset" type="button" data-quota="300" data-days="30" data-devices="2">VIP</button>
+              <button class="secondary preset" type="button" data-plan="trial" data-plan-name="Dùng thử" data-quota="10" data-days="7" data-devices="1">Dùng thử</button>
+              <button class="secondary preset" type="button" data-plan="monthly" data-plan-name="Gói tháng" data-quota="100" data-days="30" data-devices="1">Gói tháng</button>
+              <button class="secondary preset" type="button" data-plan="vip" data-plan-name="VIP" data-quota="300" data-days="30" data-devices="2">VIP</button>
             </div>
           </section>
 
@@ -97,7 +97,7 @@
           <header class="panel-title toolbar-title">
             <div>
               <h2>Danh sách tài khoản</h2>
-              <p>Quản lý trạng thái, quota, thiết bị và thời hạn sử dụng.</p>
+              <p>Quản lý trạng thái, quota, thiết bị và thời hạn sử dụng. <span id="planFilterStatus" class="muted-text"></span></p>
             </div>
             <div class="table-tools">
               <input id="userSearch" type="search" placeholder="Tìm email...">

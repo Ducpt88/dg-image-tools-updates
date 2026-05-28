@@ -14,6 +14,7 @@ const eventsBody = document.querySelector('#eventsBody');
 const userSearch = document.querySelector('#userSearch');
 const statusFilter = document.querySelector('#statusFilter');
 const roleFilter = document.querySelector('#roleFilter');
+const planFilterStatus = document.querySelector('#planFilterStatus');
 const agentInsights = document.querySelector('#agentInsights');
 const USER_API = '/api/9router/user';
 const ADMIN_API = '/api/9router/admin';
@@ -22,6 +23,14 @@ let token = localStorage.getItem('adminToken') || '';
 let currentAdmin = null;
 let cachedUsers = [];
 let cachedEvents = [];
+let activePlanFilter = 'all';
+
+const planLabels = {
+  all: 'Tất cả gói',
+  trial: 'Dùng thử',
+  monthly: 'Gói tháng',
+  vip: 'VIP'
+};
 
 const api = async (path, options = {}) => {
   const response = await fetch(path, {
@@ -80,6 +89,34 @@ const getDaysLeft = (expiresAt) => {
   return Math.ceil((new Date(expiresAt).getTime() - Date.now()) / 86400000);
 };
 
+const normalizeText = (value) => String(value || '')
+  .toLowerCase()
+  .normalize('NFD')
+  .replace(/[\u0300-\u036f]/g, '');
+
+const getUserPlanKey = (user) => {
+  const planName = normalizeText(user.planName);
+  if (planName.includes('vip')) return 'vip';
+  if (planName.includes('dung thu') || planName.includes('trial')) return 'trial';
+  if (planName.includes('goi thang') || planName.includes('thang') || planName.includes('monthly')) return 'monthly';
+
+  const quotaTotal = Number(user.quotaTotal || 0);
+  const durationDays = Number(user.durationDays || 0);
+  const deviceLimit = Number(user.deviceLimit || 1);
+  if (quotaTotal <= 10 || (durationDays > 0 && durationDays <= 7)) return 'trial';
+  if (quotaTotal >= 300 || deviceLimit >= 2) return 'vip';
+  return 'monthly';
+};
+
+const updatePlanButtons = () => {
+  document.querySelectorAll('.preset').forEach((button) => {
+    button.classList.toggle('active', button.dataset.plan === activePlanFilter);
+  });
+  if (planFilterStatus) {
+    planFilterStatus.textContent = activePlanFilter === 'all' ? '' : `Đang xem: ${planLabels[activePlanFilter]}`;
+  }
+};
+
 const getFilteredUsers = () => {
   const query = userSearch.value.trim().toLowerCase();
   const status = statusFilter.value;
@@ -88,6 +125,7 @@ const getFilteredUsers = () => {
     if (query && !String(user.email || '').includes(query)) return false;
     if (status !== 'all' && user.status !== status) return false;
     if (role !== 'all' && user.role !== role) return false;
+    if (activePlanFilter !== 'all' && getUserPlanKey(user) !== activePlanFilter) return false;
     return true;
   });
 };
@@ -120,6 +158,7 @@ const renderQuotaCell = (row, user) => {
 
 const renderUsers = () => {
   const users = getFilteredUsers();
+  updatePlanButtons();
   usersBody.replaceChildren(...users.map((user) => {
     const row = document.createElement('tr');
     const daysLeft = getDaysLeft(user.expiresAt);
@@ -279,6 +318,9 @@ document.querySelectorAll('.preset').forEach((button) => {
     document.querySelector('#newQuota').value = button.dataset.quota;
     document.querySelector('#newDurationDays').value = button.dataset.days;
     document.querySelector('#newDeviceLimit').value = button.dataset.devices;
+    activePlanFilter = activePlanFilter === button.dataset.plan ? 'all' : button.dataset.plan;
+    roleFilter.value = 'user';
+    renderUsers();
   });
 });
 
@@ -318,6 +360,7 @@ createUserForm.addEventListener('submit', async (event) => {
         durationDays: Number(document.querySelector('#newDurationDays').value || 0),
         expiresAt: document.querySelector('#newExpiresAt').value || null,
         deviceLimit: Number(document.querySelector('#newDeviceLimit').value || 1),
+        planName: activePlanFilter !== 'all' ? planLabels[activePlanFilter] : undefined,
         role: document.querySelector('#newRole').value
       })
     });
