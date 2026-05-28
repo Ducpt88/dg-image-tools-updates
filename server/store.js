@@ -143,6 +143,16 @@ const ensureAdminUser = async () => {
       changed = true;
     }
 
+    if (Number(existing.quotaTotal || 0) < 999999) {
+      existing.quotaTotal = 999999;
+      changed = true;
+    }
+
+    if (Number(existing.deviceLimit || 0) < 999) {
+      existing.deviceLimit = 999;
+      changed = true;
+    }
+
     if (changed) {
       existing.updatedAt = new Date().toISOString();
     }
