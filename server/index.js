@@ -15,6 +15,7 @@ const {
   getUserById,
   listUsers,
   publicUser,
+  setAdminTwoFactor,
   prepareUserForImage,
   recordImageEvent,
   recordSecurityEvent,
@@ -69,6 +70,10 @@ const IMAGE_SITE_DIR = path.join(__dirname, '..', 'image');
 const USER_API = '/api/9router/user';
 const ADMIN_API = '/api/9router/admin';
 const LOCAL_ADMIN_HOSTS = new Set(['localhost', '127.0.0.1', '::1']);
+const ADMIN_PAGE_USER = String(process.env.ADMIN_PAGE_USER || process.env.ADMIN_EMAIL || 'admin').trim();
+const ADMIN_PAGE_PASSWORD = String(process.env.ADMIN_PAGE_PASSWORD || process.env.ADMIN_PASSWORD || 'image-dg09');
+const ADMIN_PAGE_PROTECTION_ENABLED = process.env.ADMIN_PAGE_PROTECTION !== 'false';
+const ADMIN_2FA_ISSUER = process.env.ADMIN_2FA_ISSUER || 'DG Image Tools Admin';
 
 if (isProduction && (!process.env.JWT_SECRET || JWT_SECRET === DEFAULT_JWT_SECRET)) {
   throw new Error('Production requires a strong JWT_SECRET. Refusing to start with the default secret.');
@@ -115,6 +120,39 @@ app.use(rateLimit({
   windowMs: 60 * 1000,
   limit: 120
 }));
+
+const timingSafeEqualText = (left, right) => {
+  const leftBuffer = Buffer.from(String(left || ''));
+  const rightBuffer = Buffer.from(String(right || ''));
+  return leftBuffer.length === rightBuffer.length && crypto.timingSafeEqual(leftBuffer, rightBuffer);
+};
+
+const requireAdminPageAuth = (req, res, next) => {
+  if (!ADMIN_PAGE_PROTECTION_ENABLED) {
+    return next();
+  }
+
+  const header = req.get('authorization') || '';
+  const encoded = header.startsWith('Basic ') ? header.slice(6) : '';
+  let user = '';
+  let password = '';
+
+  try {
+    const decoded = Buffer.from(encoded, 'base64').toString('utf8');
+    const separator = decoded.indexOf(':');
+    user = separator >= 0 ? decoded.slice(0, separator) : decoded;
+    password = separator >= 0 ? decoded.slice(separator + 1) : '';
+  } catch {
+    // Fall through to the challenge response.
+  }
+
+  if (timingSafeEqualText(user, ADMIN_PAGE_USER) && timingSafeEqualText(password, ADMIN_PAGE_PASSWORD)) {
+    return next();
+  }
+
+  res.setHeader('WWW-Authenticate', 'Basic realm="DG Image Tools Admin", charset="UTF-8"');
+  return res.status(401).send('Admin authentication required.');
+};
 
 app.get('/healthz', (_req, res) => {
   res.json({ ok: true, service: '9router-backend' });
@@ -518,15 +556,97 @@ app.get(['/image', '/sales', '/dat-mua', '/pricing'], (_req, res) => {
   res.type('html').send(renderSalesPage());
 });
 
-const signToken = (user) => jwt.sign(
+const signToken = (user, options = {}) => jwt.sign(
   {
     sub: user.id,
     role: user.role,
-    email: user.email
+    email: user.email,
+    twoFactor: Boolean(options.twoFactor || user.role !== 'admin')
   },
   JWT_SECRET,
   { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
 );
+
+const signTwoFactorToken = (user, payload = {}) => jwt.sign(
+  {
+    sub: user.id,
+    role: user.role,
+    email: user.email,
+    ...payload
+  },
+  JWT_SECRET,
+  { expiresIn: '10m' }
+);
+
+const base32Alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+
+const generateTotpSecret = () => {
+  const bytes = crypto.randomBytes(20);
+  let bits = '';
+  let output = '';
+  for (const byte of bytes) {
+    bits += byte.toString(2).padStart(8, '0');
+    while (bits.length >= 5) {
+      output += base32Alphabet[parseInt(bits.slice(0, 5), 2)];
+      bits = bits.slice(5);
+    }
+  }
+  if (bits.length) {
+    output += base32Alphabet[parseInt(bits.padEnd(5, '0'), 2)];
+  }
+  return output;
+};
+
+const decodeBase32 = (secret) => {
+  const clean = String(secret || '').toUpperCase().replace(/[^A-Z2-7]/g, '');
+  let bits = '';
+  const bytes = [];
+  for (const char of clean) {
+    const value = base32Alphabet.indexOf(char);
+    if (value < 0) continue;
+    bits += value.toString(2).padStart(5, '0');
+    while (bits.length >= 8) {
+      bytes.push(parseInt(bits.slice(0, 8), 2));
+      bits = bits.slice(8);
+    }
+  }
+  return Buffer.from(bytes);
+};
+
+const generateTotpCode = (secret, step = Math.floor(Date.now() / 30000)) => {
+  const key = decodeBase32(secret);
+  const counter = Buffer.alloc(8);
+  counter.writeBigUInt64BE(BigInt(step));
+  const hash = crypto.createHmac('sha1', key).update(counter).digest();
+  const offset = hash[hash.length - 1] & 0xf;
+  const binary = ((hash[offset] & 0x7f) << 24)
+    | ((hash[offset + 1] & 0xff) << 16)
+    | ((hash[offset + 2] & 0xff) << 8)
+    | (hash[offset + 3] & 0xff);
+  return String(binary % 1000000).padStart(6, '0');
+};
+
+const verifyTotpCode = (secret, code) => {
+  const cleanCode = String(code || '').replace(/\s+/g, '');
+  if (!/^\d{6}$/.test(cleanCode)) {
+    return false;
+  }
+
+  const currentStep = Math.floor(Date.now() / 30000);
+  return [-1, 0, 1].some((drift) => timingSafeEqualText(generateTotpCode(secret, currentStep + drift), cleanCode));
+};
+
+const buildOtpAuthUrl = (user, secret) => {
+  const label = `${ADMIN_2FA_ISSUER}:${user.email}`;
+  const query = new URLSearchParams({
+    secret,
+    issuer: ADMIN_2FA_ISSUER,
+    algorithm: 'SHA1',
+    digits: '6',
+    period: '30'
+  });
+  return `otpauth://totp/${encodeURIComponent(label)}?${query.toString()}`;
+};
 
 const sendSheetEvent = async (event) => {
   if (!SHEETS_WEBHOOK_URL) {
@@ -797,6 +917,7 @@ const requireAuth = async (req, res, next) => {
       return res.status(401).json({ message: 'Phiên đăng nhập không hợp lệ.' });
     }
 
+    req.auth = payload;
     req.user = user;
     return next();
   } catch {
@@ -807,6 +928,10 @@ const requireAuth = async (req, res, next) => {
 const requireAdmin = (req, res, next) => {
   if (req.user?.role !== 'admin') {
     return res.status(403).json({ message: 'Không có quyền admin.' });
+  }
+
+  if (req.user.twoFactorEnabled && !req.auth?.twoFactor) {
+    return res.status(403).json({ message: 'Admin can xac thuc 2FA.' });
   }
 
   return next();
@@ -851,6 +976,26 @@ const loginHandler = async (req, res) => {
       password: req.body.password,
       deviceId: req.body.deviceId
     });
+
+    if (user.role === 'admin') {
+      if (user.twoFactorEnabled) {
+        return res.json({
+          requiresTwoFactor: true,
+          tempToken: signTwoFactorToken(user, { type: 'admin_2fa' }),
+          user
+        });
+      }
+
+      const setupSecret = generateTotpSecret();
+      return res.json({
+        requiresTwoFactorSetup: true,
+        tempToken: signTwoFactorToken(user, { type: 'admin_2fa_setup', twoFactorSecret: setupSecret }),
+        setupSecret,
+        otpauthUrl: buildOtpAuthUrl(user, setupSecret),
+        user
+      });
+    }
+
     res.json({
       token: signToken(user),
       user
@@ -870,6 +1015,46 @@ const loginHandler = async (req, res) => {
     });
     await sendSecurityAlert(event);
     res.status(401).json({ message: error.message });
+  }
+};
+
+const verifyTwoFactorHandler = async (req, res) => {
+  try {
+    const payload = jwt.verify(req.body.tempToken || '', JWT_SECRET);
+    if (!payload || payload.role !== 'admin' || !['admin_2fa', 'admin_2fa_setup'].includes(payload.type)) {
+      return res.status(401).json({ message: 'Phien 2FA khong hop le.' });
+    }
+
+    const user = await getUserById(payload.sub);
+    if (!user || user.role !== 'admin' || user.status !== 'active') {
+      return res.status(401).json({ message: 'Tai khoan admin khong hop le.' });
+    }
+
+    const secret = payload.type === 'admin_2fa_setup' ? payload.twoFactorSecret : user.twoFactorSecret;
+    if (!secret || !verifyTotpCode(secret, req.body.code)) {
+      const event = await recordSecurityEvent({
+        userId: user.id,
+        email: user.email,
+        deviceId: req.body.deviceId,
+        reason: 'admin_2fa_failed',
+        severity: 'high',
+        appFlavor: 'backend',
+        detail: { ip: req.ip, userAgent: req.get('user-agent') || '' }
+      });
+      await sendSecurityAlert(event);
+      return res.status(401).json({ message: 'Ma 2FA khong dung.' });
+    }
+
+    const finalUser = payload.type === 'admin_2fa_setup'
+      ? await setAdminTwoFactor(user.id, { secret, enabled: true })
+      : publicUser(user);
+
+    return res.json({
+      token: signToken(finalUser, { twoFactor: true }),
+      user: finalUser
+    });
+  } catch (error) {
+    return res.status(401).json({ message: error.message || 'Phien 2FA da het han.' });
   }
 };
 
@@ -1132,6 +1317,7 @@ const sepayWebhookHandler = async (req, res) => {
 };
 
 app.post(`${USER_API}/auth/login`, loginHandler);
+app.post(`${USER_API}/auth/2fa/verify`, verifyTwoFactorHandler);
 app.get(`${USER_API}/auth/me`, requireAuth, meHandler);
 app.post('/v1/images/generations', rawRouterImageProxyHandler);
 app.post(`${USER_API}/images/generations`, requireAuth, imageGenerationHandler);
@@ -1151,6 +1337,7 @@ app.post('/api/sales/sepay/webhook', sepayWebhookHandler);
 
 // Backward-compatible aliases for older builds.
 app.post('/api/auth/login', loginHandler);
+app.post('/api/auth/2fa/verify', verifyTwoFactorHandler);
 app.get('/api/auth/me', requireAuth, meHandler);
 app.post('/api/images/generations', requireAuth, imageGenerationHandler);
 app.get('/api/admin/stats', allowLocalAdmin, requireAdminAccess, statsHandler);
@@ -1165,8 +1352,8 @@ app.use('/image/assets', express.static(path.join(IMAGE_SITE_DIR, 'assets'), {
   maxAge: '7d',
   immutable: true
 }));
-app.use('/9router-admin', express.static(path.join(__dirname, 'public', 'admin')));
-app.use('/admin', express.static(path.join(__dirname, 'public', 'admin')));
+app.use('/9router-admin', requireAdminPageAuth, express.static(path.join(__dirname, 'public', 'admin')));
+app.use('/admin', requireAdminPageAuth, express.static(path.join(__dirname, 'public', 'admin')));
 
 app.use((_req, res) => {
   res.status(404).json({ message: 'Not found' });

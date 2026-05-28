@@ -88,7 +88,8 @@ const publicUser = (user) => ({
   devices: user.devices || [],
   createdAt: user.createdAt,
   updatedAt: user.updatedAt,
-  lastLoginAt: user.lastLoginAt
+  lastLoginAt: user.lastLoginAt,
+  twoFactorEnabled: Boolean(user.twoFactorEnabled)
 });
 
 const addDaysIso = (startIso, days) => {
@@ -489,6 +490,21 @@ const updateUser = async (id, changes) => {
   return publicUser(user);
 };
 
+const setAdminTwoFactor = async (id, { secret, enabled = true }) => {
+  const db = await readDb();
+  const user = db.users.find((item) => item.id === id);
+
+  if (!user || user.role !== 'admin') {
+    throw new Error('Khong tim thay tai khoan admin.');
+  }
+
+  user.twoFactorSecret = String(secret || '').trim();
+  user.twoFactorEnabled = Boolean(enabled && user.twoFactorSecret);
+  user.updatedAt = new Date().toISOString();
+  await writeDb(db);
+  return publicUser(user);
+};
+
 const validateUserForUse = (user, deviceId, quotaCost = 1) => {
   if (!user || user.status !== 'active') {
     throw new Error('Tài khoản đã bị khóa hoặc không tồn tại.');
@@ -657,6 +673,7 @@ module.exports = {
   getUserById,
   listUsers,
   publicUser,
+  setAdminTwoFactor,
   prepareUserForImage,
   validateUserForUse,
   recordImageEvent,

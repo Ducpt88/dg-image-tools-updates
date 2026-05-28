@@ -4,6 +4,12 @@ const adminLogin = document.querySelector('#adminLogin');
 const emailInput = document.querySelector('#email');
 const passwordInput = document.querySelector('#password');
 const loginStatus = document.querySelector('#loginStatus');
+const twoFactorPanel = document.querySelector('#twoFactorPanel');
+const twoFactorSetup = document.querySelector('#twoFactorSetup');
+const twoFactorSecret = document.querySelector('#twoFactorSecret');
+const twoFactorLink = document.querySelector('#twoFactorLink');
+const twoFactorCode = document.querySelector('#twoFactorCode');
+const verifyTwoFactorButton = document.querySelector('#verifyTwoFactor');
 const adminEmail = document.querySelector('#adminEmail');
 const logoutButton = document.querySelector('#logout');
 const refreshButton = document.querySelector('#refresh');
@@ -24,6 +30,7 @@ let currentAdmin = null;
 let cachedUsers = [];
 let cachedEvents = [];
 let activePlanFilter = 'all';
+let pendingTwoFactor = null;
 
 const planLabels = {
   all: 'Tất cả gói',
@@ -56,6 +63,31 @@ const setLoggedIn = (loggedIn, user = null) => {
   dashboardView.classList.toggle('hidden', !loggedIn);
   adminEmail.textContent = user?.email || 'Đang quản lý hệ thống';
   logoutButton.hidden = !loggedIn;
+};
+
+const resetTwoFactorFlow = () => {
+  pendingTwoFactor = null;
+  twoFactorPanel.classList.add('hidden');
+  twoFactorSetup.classList.add('hidden');
+  twoFactorSecret.textContent = '';
+  twoFactorLink.removeAttribute('href');
+  twoFactorCode.value = '';
+  verifyTwoFactorButton.disabled = false;
+};
+
+const showTwoFactorFlow = (result) => {
+  pendingTwoFactor = {
+    tempToken: result.tempToken,
+    setup: Boolean(result.requiresTwoFactorSetup)
+  };
+  twoFactorPanel.classList.remove('hidden');
+  twoFactorSetup.classList.toggle('hidden', !pendingTwoFactor.setup);
+  twoFactorSecret.textContent = result.setupSecret || '';
+  if (result.otpauthUrl) {
+    twoFactorLink.href = result.otpauthUrl;
+  }
+  twoFactorCode.value = '';
+  twoFactorCode.focus();
 };
 
 const formatDate = (value) => value ? new Date(value).toLocaleString('vi-VN') : '-';
@@ -267,9 +299,44 @@ const loginAdmin = async ({ email, password }) => {
     throw new Error('Tài khoản này không có quyền admin.');
   }
 
+  if (result.requiresTwoFactor || result.requiresTwoFactorSetup) {
+    token = '';
+    currentAdmin = null;
+    localStorage.removeItem('adminToken');
+    showTwoFactorFlow(result);
+    return null;
+  }
+
   token = result.token;
   currentAdmin = result.user;
   localStorage.setItem('adminToken', token);
+  resetTwoFactorFlow();
+  return result.user;
+};
+
+const verifyTwoFactor = async () => {
+  if (!pendingTwoFactor?.tempToken) {
+    throw new Error('Vui lòng đăng nhập lại để xác thực 2FA.');
+  }
+
+  const code = twoFactorCode.value.replace(/\D/g, '');
+  if (code.length !== 6) {
+    throw new Error('Nhập mã 2FA gồm 6 số.');
+  }
+
+  const result = await api(`${USER_API}/auth/2fa/verify`, {
+    method: 'POST',
+    body: JSON.stringify({
+      tempToken: pendingTwoFactor.tempToken,
+      code,
+      deviceId: `web-admin-${navigator.userAgent.slice(0, 80)}`
+    })
+  });
+
+  token = result.token;
+  currentAdmin = result.user;
+  localStorage.setItem('adminToken', token);
+  resetTwoFactorFlow();
   return result.user;
 };
 
@@ -334,15 +401,42 @@ adminLogin.addEventListener('submit', async (event) => {
   loginStatus.textContent = 'Đang đăng nhập...';
 
   try {
-    await loginAdmin({ email: emailInput.value.trim(), password: passwordInput.value });
+    const user = await loginAdmin({ email: emailInput.value.trim(), password: passwordInput.value });
     passwordInput.value = '';
-    loginStatus.textContent = '';
-    await loadDashboard();
+    if (user) {
+      loginStatus.textContent = '';
+      await loadDashboard();
+    } else {
+      loginStatus.textContent = pendingTwoFactor?.setup
+        ? 'Quét/thêm khóa 2FA rồi nhập mã 6 số để hoàn tất.'
+        : 'Nhập mã 2FA để vào trang quản trị.';
+    }
   } catch (error) {
     token = '';
     currentAdmin = null;
     localStorage.removeItem('adminToken');
     loginStatus.textContent = error.message;
+  }
+});
+
+verifyTwoFactorButton.addEventListener('click', async () => {
+  verifyTwoFactorButton.disabled = true;
+  loginStatus.textContent = 'Đang xác thực 2FA...';
+
+  try {
+    await verifyTwoFactor();
+    loginStatus.textContent = '';
+    await loadDashboard();
+  } catch (error) {
+    loginStatus.textContent = error.message;
+    verifyTwoFactorButton.disabled = false;
+  }
+});
+
+twoFactorCode.addEventListener('keydown', (event) => {
+  if (event.key === 'Enter') {
+    event.preventDefault();
+    verifyTwoFactorButton.click();
   }
 });
 
@@ -379,6 +473,7 @@ logoutButton.addEventListener('click', () => {
   token = '';
   currentAdmin = null;
   localStorage.removeItem('adminToken');
+  resetTwoFactorFlow();
   setLoggedIn(false);
 });
 
@@ -390,11 +485,13 @@ refreshButton.addEventListener('click', () => {
 });
 
 setLoggedIn(false);
+resetTwoFactorFlow();
 loadCurrentAdmin()
   .then((user) => user ? loadDashboard() : null)
   .catch(() => {
     token = '';
     currentAdmin = null;
     localStorage.removeItem('adminToken');
+    resetTwoFactorFlow();
     setLoggedIn(false);
   });

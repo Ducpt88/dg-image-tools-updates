@@ -26,6 +26,19 @@
             <span>Mật khẩu</span>
             <input id="password" type="password" autocomplete="current-password" required>
           </label>
+          <section id="twoFactorPanel" class="two-factor-panel hidden" aria-live="polite">
+            <div id="twoFactorSetup" class="two-factor-setup hidden">
+              <strong>Thiết lập 2FA cho admin</strong>
+              <span>Mở Google Authenticator, Microsoft Authenticator hoặc 1Password, thêm khóa này rồi nhập mã 6 số.</span>
+              <code id="twoFactorSecret"></code>
+              <a id="twoFactorLink" href="#">Mở liên kết 2FA</a>
+            </div>
+            <label>
+              <span>Mã 2FA</span>
+              <input id="twoFactorCode" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="123456">
+            </label>
+            <button id="verifyTwoFactor" type="button">Xác thực 2FA</button>
+          </section>
           <button type="submit">Đăng nhập</button>
           <p id="loginStatus" class="status-text"></p>
         </form>
