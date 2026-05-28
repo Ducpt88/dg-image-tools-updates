@@ -66,21 +66,37 @@ small, .muted-text, p { color: #627386; }
 
 .table-tools { display: grid; grid-template-columns: 220px 170px 140px; gap: 10px; }
 .table-wrap { overflow: auto; }
-table { width: 100%; min-width: 1180px; border-collapse: collapse; }
+table { width: 100%; min-width: 1240px; border-collapse: collapse; table-layout: fixed; }
 .events-table { min-width: 940px; }
 th, td { border-bottom: 1px solid #eef2f6; padding: 10px; text-align: left; vertical-align: top; }
 th { position: sticky; top: 0; z-index: 1; background: #f8fafc; color: #506477; font-weight: 900; }
 td { color: #12202f; }
 .email-cell { font-weight: 800; }
+th:nth-child(1), td:nth-child(1) { width: 280px; }
+th:nth-child(2), td:nth-child(2) { width: 72px; }
+th:nth-child(3), td:nth-child(3) { width: 142px; }
+th:nth-child(4), td:nth-child(4) { width: 160px; }
+th:nth-child(5), td:nth-child(5) { width: 118px; }
+th:nth-child(6), td:nth-child(6) { width: 96px; }
+th:nth-child(7), td:nth-child(7) { width: 150px; }
+th:nth-child(8), td:nth-child(8) { width: 82px; }
+th:nth-child(9), td:nth-child(9) { width: 138px; }
+th:nth-child(10), td:nth-child(10) { width: 300px; }
 
 .row-actions { display: flex; flex-wrap: wrap; gap: 6px; min-width: 250px; }
 .row-actions button { min-height: 32px; padding: 0 10px; }
 .pill { display: inline-flex; align-items: center; min-height: 24px; border-radius: 999px; background: #e5f4ff; color: #075985; padding: 3px 9px; font-weight: 900; white-space: nowrap; }
 .pill.blocked { background: #fee2e2; color: #b42318; }
 
-.quota-line { display: flex; align-items: baseline; gap: 5px; font-weight: 800; }
-.quota-line strong { font-size: 18px; }
-.meter { width: 150px; max-width: 100%; height: 7px; border-radius: 999px; overflow: hidden; background: #e8eef6; margin: 6px 0 5px; }
+.quota-cell { min-width: 0; }
+.quota-summary { display: flex; align-items: baseline; gap: 4px; font-weight: 900; white-space: nowrap; }
+.quota-summary strong { font-size: 18px; line-height: 1; }
+.quota-summary span { color: #40566c; font-weight: 800; }
+.quota-summary.ok strong { color: #12202f; }
+.quota-summary.low strong { color: #b45309; }
+.quota-summary.empty strong { color: #b42318; }
+.admin-quota { color: #40566c; }
+.meter { width: 118px; max-width: 100%; height: 7px; border-radius: 999px; overflow: hidden; background: #e8eef6; margin: 7px 0 5px; }
 .meter span { display: block; height: 100%; background: linear-gradient(90deg, #16a34a, #1267d6); }
 .prompt-cell { max-width: 560px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 

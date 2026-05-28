@@ -96,12 +96,24 @@ const renderQuotaCell = (row, user) => {
   const used = Number(user.quotaUsed || 0);
   const total = Number(user.quotaTotal || 0);
   const remaining = Math.max(0, total - used);
-  const ratio = total > 0 ? Math.min(100, Math.round((used / total) * 100)) : 100;
+  const usedRatio = total > 0 ? Math.min(100, Math.round((used / total) * 100)) : 0;
   const cell = document.createElement('td');
+  cell.className = 'quota-cell';
+
+  if (user.role === 'admin') {
+    cell.innerHTML = `
+      <div class="quota-summary admin-quota">Không áp dụng</div>
+      <div class="muted-text">Tài khoản quản trị không trừ quota thành viên</div>
+    `;
+    row.append(cell);
+    return;
+  }
+
+  const quotaState = remaining <= 0 ? 'empty' : remaining <= 5 ? 'low' : 'ok';
   cell.innerHTML = `
-    <div class="quota-line"><strong>${remaining}</strong><span>còn lại</span></div>
-    <div class="meter"><span style="width:${ratio}%"></span></div>
-    <div class="muted-text">Đã dùng ${used}/${total}</div>
+    <div class="quota-summary ${quotaState}"><strong>${remaining}</strong><span>/ ${total} ảnh còn</span></div>
+    <div class="meter" title="Đã dùng ${used}/${total} ảnh"><span style="width:${usedRatio}%"></span></div>
+    <div class="muted-text">Đã dùng ${used} ảnh</div>
   `;
   row.append(cell);
 };
@@ -138,7 +150,7 @@ const renderUsers = () => {
     } else {
       actions.append(
         actionButton(user.status === 'active' ? 'Khóa' : 'Mở khóa', 'danger', () => updateUser(user.id, { status: user.status === 'active' ? 'blocked' : 'active' })),
-        actionButton('Reset quota', 'secondary', () => updateUser(user.id, { quotaUsed: 0 })),
+        actionButton('Reset đã dùng', 'secondary', () => updateUser(user.id, { quotaUsed: 0 })),
         actionButton('Xóa thiết bị', 'secondary', () => updateUser(user.id, { clearDevices: true })),
         actionButton('+100 quota', 'secondary', () => updateUser(user.id, { quotaTotal: Number(user.quotaTotal || 0) + 100 }))
       );
