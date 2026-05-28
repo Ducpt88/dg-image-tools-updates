@@ -46,6 +46,6 @@ services:
       - key: BANK_ACCOUNT_NAME
         value: Hoang Van Duc
       - key: SEPAY_BANK_CODE
-        value: VPBank
+        value: VPB
       - key: SITE_IMAGE_URL
         value: https://ducpt.com/image
