@@ -13,7 +13,7 @@ const {
   getUserById,
   listUsers,
   publicUser,
-  validateUserForUse,
+  prepareUserForImage,
   recordImageEvent,
   recordSecurityEvent,
   listEvents,
@@ -45,6 +45,8 @@ const ROUTER_IMAGE_ENDPOINTS = [...new Set([
   ROUTER_IMAGE_ENDPOINT,
   ROUTER_IMAGE_FALLBACK_ENDPOINT
 ].filter(Boolean))];
+let preferredRouterImageEndpoint = process.env.ROUTER_IMAGE_PREFERRED_ENDPOINT
+  || (!isOpenAiImageProvider && ROUTER_IMAGE_FALLBACK_ENDPOINT ? ROUTER_IMAGE_FALLBACK_ENDPOINT : ROUTER_IMAGE_ENDPOINT);
 const ROUTER_IMAGE_MODEL = process.env.ROUTER_IMAGE_MODEL || (isOpenAiImageProvider ? 'gpt-image-1' : '');
 const ROUTER_QUOTA_ENDPOINT = process.env.ROUTER_QUOTA_ENDPOINT || '';
 const ROUTER_QUOTA_TOTAL = Number(process.env.ROUTER_QUOTA_TOTAL || 0);
@@ -592,6 +594,57 @@ const getFetchErrorMessage = (error) => [
   error.cause?.code
 ].filter(Boolean).join(' | ');
 
+const getRouterImageEndpoints = () => [...new Set([
+  preferredRouterImageEndpoint,
+  ...ROUTER_IMAGE_ENDPOINTS
+].filter(Boolean))];
+
+const fetchRouterImage = async (payload) => {
+  let upstream = null;
+  let rawText = '';
+  let lastFetchError = null;
+  let lastEndpoint = '';
+  const endpoints = getRouterImageEndpoints();
+
+  for (const endpoint of endpoints) {
+    lastEndpoint = endpoint;
+    try {
+      upstream = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${ROUTER_API_KEY}`,
+          Accept: isOpenAiImageProvider ? 'application/json' : 'text/event-stream'
+        },
+        body: JSON.stringify(payload)
+      });
+      rawText = await upstream.text();
+
+      if (upstream.ok) {
+        preferredRouterImageEndpoint = endpoint;
+        return { upstream, rawText, endpoint };
+      }
+
+      if ((upstream.status < 500 && upstream.status !== 404) || endpoint === endpoints.at(-1)) {
+        return { upstream, rawText, endpoint };
+      }
+    } catch (error) {
+      lastFetchError = error;
+      if (endpoint === endpoints.at(-1)) {
+        error.endpoint = endpoint;
+        throw error;
+      }
+    }
+  }
+
+  if (lastFetchError) {
+    lastFetchError.endpoint = lastEndpoint;
+    throw lastFetchError;
+  }
+
+  return { upstream, rawText, endpoint: lastEndpoint };
+};
+
 const parseRouterQuota = (data, fallbackUsed = 0) => {
   const quotaTotal = readQuotaNumber(data, [
     'quotaTotal',
@@ -734,16 +787,7 @@ const rawRouterImageProxyHandler = async (req, res) => {
       return res.status(401).json({ message: 'Unauthorized.' });
     }
 
-    const upstream = await fetch(ROUTER_IMAGE_ENDPOINT, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${ROUTER_API_KEY}`,
-        Accept: isOpenAiImageProvider ? 'application/json' : 'text/event-stream'
-      },
-      body: JSON.stringify(req.body || {})
-    });
-    const rawText = await upstream.text();
+    const { upstream, rawText } = await fetchRouterImage(req.body || {});
     return res.status(upstream.status).type(upstream.headers.get('content-type') || 'application/json').send(rawText);
   } catch (error) {
     return res.status(502).json({ message: getFetchErrorMessage(error) || error.message });
@@ -754,44 +798,14 @@ const imageGenerationHandler = async (req, res) => {
   const deviceId = req.body.deviceId || req.get('x-device-id') || null;
 
   try {
-    validateUserForUse(req.user, deviceId);
+    await prepareUserForImage({ userId: req.user.id, deviceId });
 
     if (!ROUTER_API_KEY) {
       throw new Error('Server chưa cấu hình ROUTER_API_KEY.');
     }
 
     const payload = buildImagePayload(req.body);
-
-    let upstream = null;
-    let rawText = '';
-    let lastFetchError = null;
-
-    for (const endpoint of ROUTER_IMAGE_ENDPOINTS) {
-      try {
-        upstream = await fetch(endpoint, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${ROUTER_API_KEY}`,
-            Accept: isOpenAiImageProvider ? 'application/json' : 'text/event-stream'
-          },
-          body: JSON.stringify(payload)
-        });
-        rawText = await upstream.text();
-        if (upstream.ok || (upstream.status < 500 && upstream.status !== 404) || endpoint === ROUTER_IMAGE_ENDPOINTS.at(-1)) {
-          break;
-        }
-      } catch (error) {
-        lastFetchError = error;
-        if (endpoint === ROUTER_IMAGE_ENDPOINTS.at(-1)) {
-          throw error;
-        }
-      }
-    }
-
-    if (!upstream && lastFetchError) {
-      throw lastFetchError;
-    }
+    const { upstream, rawText } = await fetchRouterImage(payload);
 
     if (!upstream.ok) {
       const event = await recordImageEvent({
@@ -815,9 +829,10 @@ const imageGenerationHandler = async (req, res) => {
     return res.status(upstream.status).type(upstream.headers.get('content-type') || 'application/json').send(rawText);
   } catch (error) {
     const detail = getFetchErrorMessage(error);
+    const failedEndpoint = error.endpoint || preferredRouterImageEndpoint || ROUTER_IMAGE_ENDPOINT;
     const message = detail === 'fetch failed'
-      ? `fetch failed: ${getEndpointLabel(ROUTER_IMAGE_ENDPOINT)}`
-      : `${detail || error.message}: ${getEndpointLabel(ROUTER_IMAGE_ENDPOINT)}`;
+      ? `fetch failed: ${getEndpointLabel(failedEndpoint)}`
+      : `${detail || error.message}: ${getEndpointLabel(failedEndpoint)}`;
     const event = await recordImageEvent({
       userId: req.user.id,
       ok: false,

@@ -160,7 +160,7 @@ span {
 
 .create-grid {
   display: grid;
-  grid-template-columns: 1.2fr 1fr 100px 150px 110px 120px auto;
+  grid-template-columns: 1.2fr 1fr 100px 120px 150px 110px 120px auto;
   gap: 10px;
   padding: 14px;
 }

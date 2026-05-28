@@ -133,7 +133,9 @@ const renderUsers = (users) => {
     row.append(statusCell);
 
     appendTextCell(row, `${user.quotaUsed}/${user.quotaTotal} con ${remaining}`);
-    appendTextCell(row, user.expiresAt || '-');
+    appendTextCell(row, Number(user.durationDays || 0) ? `${user.durationDays} ngay` : '-');
+    appendTextCell(row, formatDate(user.activatedAt));
+    appendTextCell(row, formatDate(user.expiresAt));
     appendTextCell(row, `${(user.devices || []).length}/${user.deviceLimit}`);
     appendTextCell(row, formatDate(user.lastLoginAt));
 
@@ -208,6 +210,7 @@ createUserForm.addEventListener('submit', async (event) => {
         email: document.querySelector('#newEmail').value.trim(),
         password: document.querySelector('#newPassword').value,
         quotaTotal: Number(document.querySelector('#newQuota').value || 0),
+        durationDays: Number(document.querySelector('#newDurationDays').value || 0),
         expiresAt: document.querySelector('#newExpiresAt').value || null,
         deviceLimit: Number(document.querySelector('#newDeviceLimit').value || 1),
         role: document.querySelector('#newRole').value
@@ -215,6 +218,7 @@ createUserForm.addEventListener('submit', async (event) => {
     });
     createUserForm.reset();
     document.querySelector('#newQuota').value = 100;
+    document.querySelector('#newDurationDays').value = 30;
     document.querySelector('#newDeviceLimit').value = 1;
     createStatus.textContent = 'Da them.';
     await loadDashboard();

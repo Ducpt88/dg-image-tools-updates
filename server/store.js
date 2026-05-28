@@ -81,6 +81,8 @@ const publicUser = (user) => ({
   quotaUsed: user.quotaUsed,
   quotaRemaining: Math.max(0, Number(user.quotaTotal || 0) - Number(user.quotaUsed || 0)),
   quotaUnit: 'ảnh',
+  durationDays: Number(user.durationDays || 0),
+  activatedAt: user.activatedAt || null,
   expiresAt: user.expiresAt,
   deviceLimit: user.deviceLimit,
   devices: user.devices || [],
@@ -88,6 +90,37 @@ const publicUser = (user) => ({
   updatedAt: user.updatedAt,
   lastLoginAt: user.lastLoginAt
 });
+
+const addDaysIso = (startIso, days) => {
+  const duration = Number(days || 0);
+  if (!Number.isFinite(duration) || duration <= 0) {
+    return null;
+  }
+
+  const start = new Date(startIso);
+  start.setUTCDate(start.getUTCDate() + duration);
+  return start.toISOString();
+};
+
+const activateUserIfNeeded = (user, nowIso = new Date().toISOString()) => {
+  if (!user || user.role === 'admin') {
+    return false;
+  }
+
+  let changed = false;
+  if (!user.activatedAt) {
+    user.activatedAt = nowIso;
+    changed = true;
+  }
+
+  const durationDays = Number(user.durationDays || 0);
+  if (durationDays > 0 && !user.expiresAt) {
+    user.expiresAt = addDaysIso(user.activatedAt, durationDays);
+    changed = true;
+  }
+
+  return changed;
+};
 
 const findUserByEmail = async (email) => {
   const db = await readDb();
@@ -116,6 +149,8 @@ const ensureAdminUser = async () => {
         status: 'active',
         quotaTotal: 999999,
         quotaUsed: 0,
+        durationDays: 0,
+        activatedAt: null,
         expiresAt: null,
         deviceLimit: 5,
         devices: [],
@@ -177,6 +212,7 @@ const createUser = async ({
   monthlyPrice = 99000,
   paymentStatus = 'paid',
   quotaTotal = 100,
+  durationDays = 30,
   expiresAt = null,
   deviceLimit = 1
 }) => {
@@ -203,6 +239,8 @@ const createUser = async ({
     paymentStatus,
     quotaTotal: Number(quotaTotal) || 0,
     quotaUsed: 0,
+    durationDays: Number(durationDays) || 0,
+    activatedAt: null,
     expiresAt: expiresAt || null,
     deviceLimit: Number(deviceLimit) || 1,
     devices: [],
@@ -338,11 +376,15 @@ const updateUser = async (id, changes) => {
     user.email = normalized;
   }
 
-  ['role', 'status', 'planName', 'monthlyPrice', 'paymentStatus', 'quotaTotal', 'quotaUsed', 'expiresAt', 'deviceLimit'].forEach((key) => {
+  ['role', 'status', 'planName', 'monthlyPrice', 'paymentStatus', 'quotaTotal', 'quotaUsed', 'durationDays', 'activatedAt', 'expiresAt', 'deviceLimit'].forEach((key) => {
     if (Object.hasOwn(changes, key)) {
-      user[key] = ['monthlyPrice', 'quotaTotal', 'quotaUsed', 'deviceLimit'].includes(key) ? Number(changes[key]) : changes[key];
+      user[key] = ['monthlyPrice', 'quotaTotal', 'quotaUsed', 'durationDays', 'deviceLimit'].includes(key) ? Number(changes[key]) : changes[key];
     }
   });
+
+  if (Object.hasOwn(changes, 'durationDays') && user.activatedAt && !Object.hasOwn(changes, 'expiresAt')) {
+    user.expiresAt = addDaysIso(user.activatedAt, user.durationDays);
+  }
 
   if (changes.password) {
     user.passwordHash = await bcrypt.hash(changes.password, 12);
@@ -390,11 +432,27 @@ const authenticateUser = async ({ email, password, deviceId }) => {
     throw new Error('Email hoặc mật khẩu không đúng.');
   }
 
+  const now = new Date().toISOString();
+  activateUserIfNeeded(user, now);
   validateUserForUse(user, deviceId);
-  user.lastLoginAt = new Date().toISOString();
+  user.lastLoginAt = now;
   user.updatedAt = user.lastLoginAt;
   await writeDb(db);
   return publicUser(user);
+};
+
+const prepareUserForImage = async ({ userId, deviceId, quotaCost = 1 }) => {
+  const db = await readDb();
+  const user = db.users.find((item) => item.id === userId);
+  const now = new Date().toISOString();
+
+  activateUserIfNeeded(user, now);
+  validateUserForUse(user, deviceId, quotaCost);
+  if (user) {
+    user.updatedAt = now;
+  }
+  await writeDb(db);
+  return user ? publicUser(user) : null;
 };
 
 const getUserById = async (id) => {
@@ -508,6 +566,7 @@ module.exports = {
   getUserById,
   listUsers,
   publicUser,
+  prepareUserForImage,
   validateUserForUse,
   recordImageEvent,
   recordSecurityEvent,
