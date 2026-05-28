@@ -3,10 +3,10 @@ const SALES_SHEET_ID = '1YL2mY6uYJCNrLASNjev7g7XDiPYVi4wBy8S_V7Ntlzg';
 function doPost(e) {
   const data = JSON.parse((e && e.postData && e.postData.contents) || '{}');
   const ss = SpreadsheetApp.openById(data.sheetId || SALES_SHEET_ID);
-  const sheetName = data.type === 'sales_order' ? 'orders' : (data.type === 'security_alert' ? 'security_alerts' : 'events');
+  const sheetName = data.type === 'sales_order' || data.type === 'sales_trial_registered' || data.type === 'sales_payment_paid' ? 'orders' : (data.type === 'customer_email' ? 'customer_emails' : (data.type === 'security_alert' ? 'security_alerts' : 'events'));
   const sheet = ss.getSheetByName(sheetName) || ss.insertSheet(sheetName);
 
-  if (data.type === 'sales_order') {
+  if (data.type === 'sales_order' || data.type === 'sales_trial_registered' || data.type === 'sales_payment_paid') {
     ensureHeader_(sheet, [
       'createdAt',
       'code',
@@ -22,7 +22,12 @@ function doPost(e) {
       'status',
       'paymentRequired',
       'transferContent',
-      'note'
+      'note',
+      'accountEmail',
+      'accountUserId',
+      'accountCreatedAt',
+      'customerEmailSentAt',
+      'expiresAt'
     ]);
     sheet.appendRow([
       data.createdAt || new Date().toISOString(),
@@ -39,8 +44,33 @@ function doPost(e) {
       data.status || '',
       data.paymentRequired ? 'YES' : 'NO',
       data.transferContent || '',
-      data.note || ''
+      data.note || '',
+      data.accountEmail || '',
+      data.accountUserId || '',
+      data.accountCreatedAt || '',
+      data.customerEmailSentAt || '',
+      data.expiresAt || ''
     ]);
+  } else if (data.type === 'customer_email') {
+    ensureHeader_(sheet, ['createdAt', 'to', 'customerName', 'orderCode', 'planName', 'quotaTotal', 'expiresAt', 'subject']);
+    sheet.appendRow([
+      data.createdAt || new Date().toISOString(),
+      data.to || '',
+      data.customerName || '',
+      data.orderCode || '',
+      data.planName || '',
+      data.quotaTotal || 0,
+      data.expiresAt || '',
+      data.subject || ''
+    ]);
+
+    if (data.to && data.subject && data.body) {
+      MailApp.sendEmail({
+        to: data.to,
+        subject: data.subject,
+        body: data.body
+      });
+    }
   } else if (data.type === 'security_alert') {
     ensureHeader_(sheet, ['createdAt', 'severity', 'reason', 'email', 'userId', 'deviceId', 'appFlavor', 'appVersion', 'detail']);
     sheet.appendRow([

@@ -5,10 +5,12 @@ const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const jwt = require('jsonwebtoken');
 const path = require('node:path');
+const crypto = require('node:crypto');
 const {
   ensureAdminUser,
   authenticateUser,
   createUser,
+  createOrUpdateSalesUser,
   updateUser,
   getUserById,
   listUsers,
@@ -21,7 +23,8 @@ const {
   createOrder,
   listOrders,
   getOrderByCode,
-  markOrderPaid
+  markOrderPaid,
+  attachOrderAccount
 } = require('./store');
 
 const app = express();
@@ -59,6 +62,8 @@ const BANK_ACCOUNT_NO = process.env.BANK_ACCOUNT_NO || 'PSP2610910700000069';
 const BANK_ACCOUNT_NAME = process.env.BANK_ACCOUNT_NAME || 'Hoang Van Duc';
 const SEPAY_BANK_CODE = process.env.SEPAY_BANK_CODE || process.env.BANK_ID || 'VPBank';
 const SITE_IMAGE_URL = process.env.SITE_IMAGE_URL || 'https://ducpt.com/image';
+const APP_GUIDE_URL = process.env.APP_GUIDE_URL || SITE_IMAGE_URL;
+const ZALO_GROUP_URL = process.env.ZALO_GROUP_URL || 'https://zalo.me/g/5mnnl6aynxzvsyu5gyl5';
 const PAYMENT_IMAGES = {};
 const IMAGE_SITE_DIR = path.join(__dirname, '..', 'image');
 const USER_API = '/api/9router/user';
@@ -201,6 +206,59 @@ const salePlans = [
 ];
 
 const formatVnd = (value) => `${Number(value || 0).toLocaleString('vi-VN')}d`;
+
+const addDaysIsoDate = (days) => {
+  const date = new Date();
+  date.setDate(date.getDate() + Number(days || 0));
+  return date.toISOString().slice(0, 10);
+};
+
+const getPlanDays = (order) => {
+  if (order.planId === 'trial') return 7;
+  return Math.max(1, Math.round(Number(order.months || 1) * 30));
+};
+
+const generateAccountPassword = () => 'DG' + crypto.randomBytes(5).toString('base64url') + crypto.randomInt(10, 99);
+
+const buildCustomerEmail = ({ order, password, kind }) => {
+  const isTrial = kind === 'trial';
+  const subject = isTrial
+    ? 'Tai khoan dung thu DG Image Tools cua ban da san sang'
+    : 'Chuc mung: DG Image Tools da xac nhan thanh toan va kich hoat tai khoan';
+  const lines = isTrial ? [
+    `Xin chao ${order.customerName || ''},`,
+    '',
+    'Ban da dang ky goi dung thu 0d DG Image Tools thanh cong.',
+    '',
+    `Email dang nhap: ${order.email}`,
+    `Mat khau tam thoi: ${password}`,
+    `So anh duoc tao: ${order.quotaTotal}`,
+    `Thoi han dung thu den: ${order.expiresAt}`,
+    '',
+    `Link huong dan: ${APP_GUIDE_URL}`,
+    `Ho tro/Zalo: ${ZALO_GROUP_URL}`,
+    '',
+    'Hay dang nhap app bang email nay. Neu can ho tro tao tai khoan hoac cai app, vao nhom Zalo de duoc huong dan nhanh.'
+  ] : [
+    `Xin chao ${order.customerName || ''},`,
+    '',
+    `Chuc mung, he thong da xac nhan thanh toan don ${order.code}.`,
+    'Tai khoan DG Image Tools cua ban da duoc tao/kich hoat tu dong.',
+    '',
+    `Goi: ${order.planName}`,
+    `Email dang nhap: ${order.email}`,
+    `Mat khau tam thoi: ${password}`,
+    `So anh duoc tao: ${order.quotaTotal}`,
+    `Thoi han su dung den: ${order.expiresAt}`,
+    '',
+    `Vao nhom Zalo ho tro truoc: ${ZALO_GROUP_URL}`,
+    `Sau do kiem tra email nay de lay huong dan va tai khoan: ${APP_GUIDE_URL}`,
+    '',
+    'Neu can doi mat khau hoac ho tro thiet bi, hay nhan tin trong nhom Zalo.'
+  ];
+
+  return { subject, body: lines.join('\n') };
+};
 
 const buildVietQrUrl = ({ amount, content }) => {
   if (!BANK_ACCOUNT_NO || !amount) {
@@ -492,6 +550,41 @@ const sendSecurityAlert = async (event) => sendSheetEvent({
   subject: `[DG Image Tools] Canh bao bao mat: ${event.reason}`,
   ...event
 });
+
+const sendCustomerEmail = async ({ order, password, kind }) => {
+  const email = buildCustomerEmail({ order, password, kind });
+  await sendSheetEvent({
+    type: 'customer_email',
+    sheetId: SALES_SHEET_ID,
+    to: order.email,
+    customerName: order.customerName,
+    orderCode: order.code,
+    planName: order.planName,
+    quotaTotal: order.quotaTotal,
+    expiresAt: order.expiresAt,
+    subject: email.subject,
+    body: email.body
+  });
+  return { ...email, sentAt: new Date().toISOString() };
+};
+
+const activateOrderAccount = async (order, kind) => {
+  const expiresAt = addDaysIsoDate(getPlanDays(order));
+  const password = generateAccountPassword();
+  const account = await createOrUpdateSalesUser({
+    email: order.email,
+    password,
+    planName: order.planName,
+    monthlyPrice: order.price,
+    paymentStatus: kind === 'trial' ? 'trial' : 'paid',
+    quotaTotal: order.quotaTotal,
+    expiresAt,
+    deviceLimit: order.deviceLimit
+  });
+  const enrichedOrder = { ...order, expiresAt, accountEmail: account.email, accountUserId: account.id };
+  const email = await sendCustomerEmail({ order: enrichedOrder, password, kind });
+  return attachOrderAccount(order.code, { user: account, emailedAt: email.sentAt, expiresAt });
+};
 
 const readQuotaNumber = (data, keys) => {
   for (const key of keys) {
@@ -946,7 +1039,7 @@ const eventsHandler = async (req, res) => {
 const createOrderHandler = async (req, res) => {
   try {
     const selectedPlan = salePlans.find((plan) => plan.id === req.body.planId) || salePlans[1];
-    const order = await createOrder({
+    let order = await createOrder({
       ...req.body,
       planId: selectedPlan.id,
       planName: selectedPlan.name,
@@ -961,6 +1054,16 @@ const createOrderHandler = async (req, res) => {
       paymentRequired: Number(order.price || 0) > 0,
       ...order
     });
+
+    if (Number(order.price || 0) <= 0) {
+      order = await activateOrderAccount(order, 'trial');
+      await sendSheetEvent({
+        type: 'sales_trial_registered',
+        sheetId: SALES_SHEET_ID,
+        ...order
+      });
+    }
+
     res.status(201).json({
       order,
       bank: getOrderPaymentInfo(order)
@@ -1007,12 +1110,13 @@ const sepayWebhookHandler = async (req, res) => {
     return res.json({ success: true, matched: false });
   }
 
-  const order = await markOrderPaid(matchedOrder.code, {
+  let order = await markOrderPaid(matchedOrder.code, {
     provider: 'sepay',
     amount,
     content: webhookText,
     payload
   });
+  order = await activateOrderAccount(order, 'paid');
   await sendSheetEvent({
     type: 'sales_payment_paid',
     sheetId: SALES_SHEET_ID,

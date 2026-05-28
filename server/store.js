@@ -253,6 +253,65 @@ const createUser = async ({
   return publicUser(user);
 };
 
+const createOrUpdateSalesUser = async ({
+  email,
+  password,
+  planName = 'Goi thang',
+  monthlyPrice = 99000,
+  paymentStatus = 'paid',
+  quotaTotal = 100,
+  expiresAt = null,
+  deviceLimit = 1
+}) => {
+  const db = await readDb();
+  const normalized = String(email || '').trim().toLowerCase();
+
+  if (!normalized || !password) {
+    throw new Error('Email va mat khau la bat buoc.');
+  }
+
+  const now = new Date().toISOString();
+  let user = db.users.find((item) => item.email === normalized);
+  const passwordHash = await bcrypt.hash(password, 12);
+
+  if (user) {
+    user.passwordHash = passwordHash;
+    user.status = 'active';
+    user.role = user.role || 'user';
+    user.planName = planName;
+    user.monthlyPrice = Number(monthlyPrice) || 0;
+    user.paymentStatus = paymentStatus;
+    user.quotaTotal = Math.max(Number(user.quotaTotal || 0), Number(quotaTotal || 0));
+    user.quotaUsed = Number(user.quotaUsed || 0);
+    user.expiresAt = expiresAt || user.expiresAt || null;
+    user.deviceLimit = Math.max(Number(user.deviceLimit || 1), Number(deviceLimit || 1));
+    user.updatedAt = now;
+  } else {
+    user = {
+      id: crypto.randomUUID(),
+      email: normalized,
+      passwordHash,
+      role: 'user',
+      status: 'active',
+      planName,
+      monthlyPrice: Number(monthlyPrice) || 0,
+      paymentStatus,
+      quotaTotal: Number(quotaTotal) || 0,
+      quotaUsed: 0,
+      expiresAt: expiresAt || null,
+      deviceLimit: Number(deviceLimit) || 1,
+      devices: [],
+      createdAt: now,
+      updatedAt: now,
+      lastLoginAt: null
+    };
+    db.users.push(user);
+  }
+
+  await writeDb(db);
+  return publicUser(user);
+};
+
 const publicOrder = (order) => ({
   id: order.id,
   code: order.code,
@@ -271,7 +330,12 @@ const publicOrder = (order) => ({
   createdAt: order.createdAt,
   updatedAt: order.updatedAt,
   paidAt: order.paidAt || null,
-  payment: order.payment || null
+  payment: order.payment || null,
+  accountEmail: order.accountEmail || '',
+  accountUserId: order.accountUserId || '',
+  accountCreatedAt: order.accountCreatedAt || null,
+  customerEmailSentAt: order.customerEmailSentAt || null,
+  expiresAt: order.expiresAt || null
 });
 
 const createOrder = async ({
@@ -352,6 +416,32 @@ const markOrderPaid = async (code, payment = {}) => {
     ...payment,
     confirmedAt: now
   };
+  order.updatedAt = now;
+  await writeDb(db);
+  return publicOrder(order);
+};
+
+const attachOrderAccount = async (code, { user, emailedAt = null, expiresAt = null } = {}) => {
+  const db = await readDb();
+  const cleanCode = String(code || '').trim();
+  const order = (db.orders || []).find((item) => item.code === cleanCode || item.transferContent === cleanCode);
+
+  if (!order) {
+    throw new Error('Order not found.');
+  }
+
+  const now = new Date().toISOString();
+  if (user) {
+    order.accountEmail = user.email;
+    order.accountUserId = user.id;
+    order.accountCreatedAt = order.accountCreatedAt || now;
+  }
+  if (emailedAt) {
+    order.customerEmailSentAt = emailedAt;
+  }
+  if (expiresAt) {
+    order.expiresAt = expiresAt;
+  }
   order.updatedAt = now;
   await writeDb(db);
   return publicOrder(order);
@@ -562,6 +652,7 @@ module.exports = {
   ensureAdminUser,
   authenticateUser,
   createUser,
+  createOrUpdateSalesUser,
   updateUser,
   getUserById,
   listUsers,
@@ -576,5 +667,6 @@ module.exports = {
   createOrder,
   listOrders,
   getOrderByCode,
-  markOrderPaid
+  markOrderPaid,
+  attachOrderAccount
 };
