@@ -188,7 +188,9 @@ const publicOrder = (order) => ({
   transferContent: order.transferContent,
   note: order.note || '',
   createdAt: order.createdAt,
-  updatedAt: order.updatedAt
+  updatedAt: order.updatedAt,
+  paidAt: order.paidAt || null,
+  payment: order.payment || null
 });
 
 const createOrder = async ({
@@ -243,6 +245,35 @@ const createOrder = async ({
 const listOrders = async (limit = 200) => {
   const db = await readDb();
   return (db.orders || []).slice(-Number(limit || 200)).reverse().map(publicOrder);
+};
+
+const getOrderByCode = async (code) => {
+  const db = await readDb();
+  const cleanCode = String(code || '').trim();
+  const order = (db.orders || []).find((item) => item.code === cleanCode || item.transferContent === cleanCode);
+  return order ? publicOrder(order) : null;
+};
+
+const markOrderPaid = async (code, payment = {}) => {
+  const db = await readDb();
+  const cleanCode = String(code || '').trim();
+  const order = (db.orders || []).find((item) => item.code === cleanCode || item.transferContent === cleanCode);
+
+  if (!order) {
+    throw new Error('Order not found.');
+  }
+
+  const now = new Date().toISOString();
+  order.status = 'paid';
+  order.paidAt = order.paidAt || now;
+  order.payment = {
+    ...(order.payment || {}),
+    ...payment,
+    confirmedAt: now
+  };
+  order.updatedAt = now;
+  await writeDb(db);
+  return publicOrder(order);
 };
 
 const updateUser = async (id, changes) => {
@@ -441,5 +472,7 @@ module.exports = {
   getStats,
   getStorageInfo,
   createOrder,
-  listOrders
+  listOrders,
+  getOrderByCode,
+  markOrderPaid
 };

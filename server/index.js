@@ -19,7 +19,9 @@ const {
   listEvents,
   getStats,
   createOrder,
-  listOrders
+  listOrders,
+  getOrderByCode,
+  markOrderPaid
 } = require('./store');
 
 const app = express();
@@ -40,13 +42,11 @@ const SHEETS_WEBHOOK_URL = process.env.SHEETS_WEBHOOK_URL || '';
 const ADMIN_ALERT_EMAIL = process.env.ADMIN_ALERT_EMAIL || 'hoangvant77internet@gmail.com';
 const SALES_SHEET_ID = process.env.SALES_SHEET_ID || '1YL2mY6uYJCNrLASNjev7g7XDiPYVi4wBy8S_V7Ntlzg';
 const BANK_ID = process.env.BANK_ID || '';
-const BANK_ACCOUNT_NO = process.env.BANK_ACCOUNT_NO || '';
-const BANK_ACCOUNT_NAME = process.env.BANK_ACCOUNT_NAME || '';
+const BANK_ACCOUNT_NO = process.env.BANK_ACCOUNT_NO || 'PSP2610910700000069';
+const BANK_ACCOUNT_NAME = process.env.BANK_ACCOUNT_NAME || 'Hoang Van Duc';
+const SEPAY_BANK_CODE = process.env.SEPAY_BANK_CODE || process.env.BANK_ID || 'VPBank';
 const SITE_IMAGE_URL = process.env.SITE_IMAGE_URL || 'https://ducpt.com/image';
-const PAYMENT_IMAGES = {
-  monthly: '/image/assets/payment-99000.svg',
-  vip: '/image/assets/payment-199000.svg'
-};
+const PAYMENT_IMAGES = {};
 const IMAGE_SITE_DIR = path.join(__dirname, '..', 'image');
 const USER_API = '/api/9router/user';
 const ADMIN_API = '/api/9router/admin';
@@ -64,7 +64,7 @@ app.use(helmet({
       "default-src": ["'self'"],
       "script-src": ["'self'", "'unsafe-inline'"],
       "style-src": ["'self'", "'unsafe-inline'"],
-      "img-src": ["'self'", 'data:', 'https://img.vietqr.io'],
+      "img-src": ["'self'", 'data:', 'https://img.vietqr.io', 'https://qr.sepay.vn'],
       "connect-src": ["'self'", 'https://script.google.com', 'https://script.googleusercontent.com']
     }
   }
@@ -190,16 +190,37 @@ const salePlans = [
 const formatVnd = (value) => `${Number(value || 0).toLocaleString('vi-VN')}d`;
 
 const buildVietQrUrl = ({ amount, content }) => {
-  if (!BANK_ID || !BANK_ACCOUNT_NO || !amount) {
+  if (!BANK_ACCOUNT_NO || !amount) {
     return '';
   }
 
   const query = new URLSearchParams({
-    amount: String(amount),
-    addInfo: content,
-    accountName: BANK_ACCOUNT_NAME || 'DG IMAGE TOOLS'
+    acc: BANK_ACCOUNT_NO,
+    bank: SEPAY_BANK_CODE,
+    amount: String(Math.round(Number(amount || 0))),
+    des: content
   });
-  return `https://img.vietqr.io/image/${encodeURIComponent(BANK_ID)}-${encodeURIComponent(BANK_ACCOUNT_NO)}-compact2.png?${query.toString()}`;
+  return `https://qr.sepay.vn/img?${query.toString()}`;
+};
+
+const normalizePaymentText = (value) => String(value || '').toUpperCase().replace(/\s+/g, ' ').trim();
+
+const extractWebhookText = (payload) => normalizePaymentText([
+  payload.content,
+  payload.description,
+  payload.transaction_content,
+  payload.transferContent,
+  payload.referenceCode,
+  payload.code
+].filter(Boolean).join(' '));
+
+const extractWebhookAmount = (payload) => {
+  const candidates = [payload.transferAmount, payload.amount, payload.transactionAmount, payload.money, payload.value];
+  for (const candidate of candidates) {
+    const value = Number(String(candidate || '').replace(/[^0-9.-]/g, ''));
+    if (Number.isFinite(value) && value > 0) return value;
+  }
+  return 0;
 };
 
 const getPublicBankInfo = (amount = 0, content = '') => ({
@@ -863,6 +884,53 @@ const listOrdersHandler = async (req, res) => {
   res.json({ orders: await listOrders(req.query.limit) });
 };
 
+const paymentStatusHandler = async (req, res) => {
+  const order = await getOrderByCode(req.params.code);
+  if (!order) {
+    return res.status(404).json({ paid: false, status: 'not_found', paymentStatus: 'not_found' });
+  }
+
+  const paid = order.status === 'paid' || Boolean(order.paidAt);
+  return res.json({ paid, status: order.status, paymentStatus: order.status, order });
+};
+
+const sepayWebhookHandler = async (req, res) => {
+  const payload = req.body || {};
+  const webhookText = extractWebhookText(payload);
+  const amount = extractWebhookAmount(payload);
+  const orders = await listOrders(500);
+  const matchedOrder = orders.find((order) => {
+    if (order.status === 'paid' || Number(order.price || 0) <= 0) return false;
+    const code = normalizePaymentText(order.transferContent || order.code);
+    return code && webhookText.includes(code) && amount >= Number(order.price || 0);
+  });
+
+  if (!matchedOrder) {
+    await recordSecurityEvent({
+      type: 'sepay_webhook_unmatched',
+      ok: false,
+      provider: 'sepay',
+      reason: 'No pending order matched webhook content/amount',
+      amount,
+      content: webhookText.slice(0, 500)
+    }).catch(() => {});
+    return res.json({ success: true, matched: false });
+  }
+
+  const order = await markOrderPaid(matchedOrder.code, {
+    provider: 'sepay',
+    amount,
+    content: webhookText,
+    payload
+  });
+  await sendSheetEvent({
+    type: 'sales_payment_paid',
+    sheetId: SALES_SHEET_ID,
+    ...order
+  });
+  return res.json({ success: true, matched: true, orderCode: order.code });
+};
+
 app.post(`${USER_API}/auth/login`, loginHandler);
 app.get(`${USER_API}/auth/me`, requireAuth, meHandler);
 app.post(`${USER_API}/images/generations`, requireAuth, imageGenerationHandler);
@@ -875,6 +943,10 @@ app.patch(`${ADMIN_API}/users/:id`, allowLocalAdmin, requireAdminAccess, updateU
 app.get(`${ADMIN_API}/events`, allowLocalAdmin, requireAdminAccess, eventsHandler);
 app.get(`${ADMIN_API}/orders`, allowLocalAdmin, requireAdminAccess, listOrdersHandler);
 app.post('/api/sales/orders', createOrderHandler);
+app.get('/api/sales/orders/:code/payment-status', paymentStatusHandler);
+app.post('/api/sepay/webhook', sepayWebhookHandler);
+app.post('/api/webhooks/sepay', sepayWebhookHandler);
+app.post('/api/sales/sepay/webhook', sepayWebhookHandler);
 
 // Backward-compatible aliases for older builds.
 app.post('/api/auth/login', loginHandler);
