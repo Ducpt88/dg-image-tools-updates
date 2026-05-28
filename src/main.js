@@ -192,6 +192,14 @@ const setUpdateStatus = (status) => {
 };
 
 const checkForUpdates = async ({ manual = false } = {}) => {
+  if (!isUserBuild()) {
+    setUpdateStatus({
+      state: 'disabled',
+      message: 'Ban Admin khong tu dong cap nhat qua kenh User.'
+    });
+    return updateStatus;
+  }
+
   if (!app.isPackaged) {
     setUpdateStatus({
       state: 'disabled',
@@ -217,6 +225,14 @@ const checkForUpdates = async ({ manual = false } = {}) => {
 };
 
 const setupAutoUpdater = () => {
+  if (!isUserBuild()) {
+    setUpdateStatus({
+      state: 'disabled',
+      message: 'Ban Admin khong tu dong cap nhat qua kenh User.'
+    });
+    return;
+  }
+
   autoUpdater.autoDownload = true;
   autoUpdater.autoInstallOnAppQuit = true;
 
