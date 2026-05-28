@@ -30,10 +30,13 @@ const isProduction = process.env.NODE_ENV === 'production';
 const DEFAULT_JWT_SECRET = 'change-this-secret-before-production';
 const JWT_SECRET = process.env.JWT_SECRET || DEFAULT_JWT_SECRET;
 const ROUTER_PROVIDER = String(process.env.ROUTER_PROVIDER || '').trim().toLowerCase();
+const OPENAI_IMAGE_ENDPOINT = 'https://api.openai.com/v1/images/generations';
+const configuredRouterImageEndpoint = String(process.env.ROUTER_IMAGE_ENDPOINT || '').trim();
 const isOpenAiImageProvider = ROUTER_PROVIDER === 'openai'
-  || String(process.env.ROUTER_IMAGE_ENDPOINT || '').includes('api.openai.com');
-const ROUTER_IMAGE_ENDPOINT = process.env.ROUTER_IMAGE_ENDPOINT
-  || (isOpenAiImageProvider ? 'https://api.openai.com/v1/images/generations' : 'http://localhost:20128/v1/images/generations');
+  || configuredRouterImageEndpoint.includes('api.openai.com');
+const ROUTER_IMAGE_ENDPOINT = isOpenAiImageProvider
+  ? (configuredRouterImageEndpoint.includes('api.openai.com') ? configuredRouterImageEndpoint : OPENAI_IMAGE_ENDPOINT)
+  : (configuredRouterImageEndpoint || 'http://localhost:20128/v1/images/generations');
 const ROUTER_IMAGE_MODEL = process.env.ROUTER_IMAGE_MODEL || (isOpenAiImageProvider ? 'gpt-image-1' : '');
 const ROUTER_QUOTA_ENDPOINT = process.env.ROUTER_QUOTA_ENDPOINT || '';
 const ROUTER_QUOTA_TOTAL = Number(process.env.ROUTER_QUOTA_TOTAL || 0);
@@ -566,6 +569,21 @@ const buildImagePayload = (body) => {
   });
 };
 
+const getEndpointLabel = (value) => {
+  try {
+    const url = new URL(value);
+    return `${url.protocol}//${url.host}${url.pathname}`;
+  } catch {
+    return String(value || '').replace(/\/[^/]*$/, '/...');
+  }
+};
+
+const getFetchErrorMessage = (error) => [
+  error.message,
+  error.cause?.message,
+  error.cause?.code
+].filter(Boolean).join(' | ');
+
 const parseRouterQuota = (data, fallbackUsed = 0) => {
   const quotaTotal = readQuotaNumber(data, [
     'quotaTotal',
@@ -743,15 +761,19 @@ const imageGenerationHandler = async (req, res) => {
     await sendSheetEvent(event);
     return res.status(upstream.status).type(upstream.headers.get('content-type') || 'application/json').send(rawText);
   } catch (error) {
+    const detail = getFetchErrorMessage(error);
+    const message = detail === 'fetch failed'
+      ? `fetch failed: ${getEndpointLabel(ROUTER_IMAGE_ENDPOINT)}`
+      : `${detail || error.message}: ${getEndpointLabel(ROUTER_IMAGE_ENDPOINT)}`;
     const event = await recordImageEvent({
       userId: req.user.id,
       ok: false,
       prompt: req.body.prompt,
-      error: error.message,
+      error: message,
       deviceId
     });
     await sendSheetEvent(event);
-    return res.status(403).json({ message: error.message });
+    return res.status(502).json({ message });
   }
 };
 
