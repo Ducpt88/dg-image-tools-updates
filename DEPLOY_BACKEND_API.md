@@ -47,6 +47,52 @@ ADMIN_ALERT_EMAIL=hoangvant77internet@gmail.com
 5. In the DNS manager for `ducpt.com`, add the CNAME record Render gives for `api.ducpt.com`.
 6. Wait for Render TLS certificate to become active.
 
+## Online DNS automation
+
+Current public DNS for `ducpt.com` uses Namecheap nameservers:
+
+```text
+dns1.registrar-servers.com
+dns2.registrar-servers.com
+```
+
+For automation that runs online and does not depend on this computer, move DNS management for `ducpt.com` to Cloudflare once, then use the GitHub Actions workflow in this repo:
+
+```text
+.github/workflows/manage-dns.yml
+```
+
+Required one-time setup:
+
+1. Add `ducpt.com` to Cloudflare.
+2. Copy the two Cloudflare nameservers for the zone.
+3. In Namecheap, replace the current nameservers with the Cloudflare nameservers.
+4. In Cloudflare, create an API token with `Zone:DNS:Edit` permission for only `ducpt.com`.
+5. In GitHub repo settings, add these Actions secrets:
+
+```text
+CLOUDFLARE_API_TOKEN=<Cloudflare DNS edit token>
+CLOUDFLARE_ZONE_ID=<Cloudflare zone id for ducpt.com>
+```
+
+Then run the GitHub Action:
+
+```text
+Actions -> Manage DNS -> Run workflow
+record_name: api
+record_type: CNAME
+record_content: ducpt-9router-api.onrender.com
+proxied: false
+```
+
+Use `proxied: false` until Render shows the custom domain certificate as active. If Render gives a different target for the custom domain, use that exact value as `record_content`.
+
+After it runs, verify from any machine:
+
+```powershell
+Resolve-DnsName api.ducpt.com -Type CNAME
+```
+
 ## Verify
 
 These must work before sending the user app to customers:
@@ -64,4 +110,3 @@ Expected quick checks:
 Invoke-RestMethod https://api.ducpt.com/healthz
 Invoke-WebRequest https://api.ducpt.com/api/9router/user/auth/login -Method Options
 ```
-

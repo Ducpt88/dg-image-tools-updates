@@ -1,0 +1,120 @@
+name: Manage DNS
+
+on:
+  workflow_dispatch:
+    inputs:
+      record_name:
+        description: DNS record name to create or update
+        required: true
+        default: api
+      record_type:
+        description: DNS record type
+        required: true
+        default: CNAME
+        type: choice
+        options:
+          - CNAME
+          - A
+          - TXT
+      record_content:
+        description: DNS record value
+        required: true
+        default: ducpt-9router-api.onrender.com
+      proxied:
+        description: Proxy record through Cloudflare
+        required: true
+        default: "false"
+        type: choice
+        options:
+          - "false"
+          - "true"
+
+permissions:
+  contents: read
+
+jobs:
+  upsert:
+    name: Upsert ducpt.com DNS record
+    runs-on: ubuntu-latest
+    steps:
+      - name: Upsert Cloudflare DNS record
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ZONE_ID: ${{ secrets.CLOUDFLARE_ZONE_ID }}
+          RECORD_NAME: ${{ inputs.record_name }}
+          RECORD_TYPE: ${{ inputs.record_type }}
+          RECORD_CONTENT: ${{ inputs.record_content }}
+          PROXIED: ${{ inputs.proxied }}
+          ZONE_NAME: ducpt.com
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [[ -z "${CLOUDFLARE_API_TOKEN}" || -z "${CLOUDFLARE_ZONE_ID}" ]]; then
+            echo "Missing CLOUDFLARE_API_TOKEN or CLOUDFLARE_ZONE_ID GitHub secret." >&2
+            exit 1
+          fi
+
+          if [[ "${RECORD_NAME}" == "${ZONE_NAME}" || "${RECORD_NAME}" == *".${ZONE_NAME}" ]]; then
+            FQDN="${RECORD_NAME}"
+          else
+            FQDN="${RECORD_NAME}.${ZONE_NAME}"
+          fi
+
+          if [[ "${RECORD_TYPE}" == "CNAME" && "${RECORD_CONTENT}" == "${FQDN}" ]]; then
+            echo "CNAME cannot point to itself: ${FQDN}" >&2
+            exit 1
+          fi
+
+          proxied_json=false
+          if [[ "${PROXIED}" == "true" ]]; then
+            proxied_json=true
+          fi
+
+          api_base="https://api.cloudflare.com/client/v4/zones/${CLOUDFLARE_ZONE_ID}/dns_records"
+          auth_header="Authorization: Bearer ${CLOUDFLARE_API_TOKEN}"
+
+          existing="$(
+            curl -fsS -G "${api_base}" \
+              -H "${auth_header}" \
+              -H "Content-Type: application/json" \
+              --data-urlencode "type=${RECORD_TYPE}" \
+              --data-urlencode "name=${FQDN}"
+          )"
+
+          record_id="$(jq -r '.result[0].id // empty' <<< "${existing}")"
+          payload="$(
+            jq -n \
+              --arg type "${RECORD_TYPE}" \
+              --arg name "${FQDN}" \
+              --arg content "${RECORD_CONTENT}" \
+              --argjson proxied "${proxied_json}" \
+              '{type:$type,name:$name,content:$content,ttl:1,proxied:$proxied}'
+          )"
+
+          if [[ -n "${record_id}" ]]; then
+            echo "Updating ${RECORD_TYPE} ${FQDN} -> ${RECORD_CONTENT}"
+            response="$(
+              curl -fsS -X PUT "${api_base}/${record_id}" \
+                -H "${auth_header}" \
+                -H "Content-Type: application/json" \
+                --data "${payload}"
+            )"
+          else
+            echo "Creating ${RECORD_TYPE} ${FQDN} -> ${RECORD_CONTENT}"
+            response="$(
+              curl -fsS -X POST "${api_base}" \
+                -H "${auth_header}" \
+                -H "Content-Type: application/json" \
+                --data "${payload}"
+            )"
+          fi
+
+          success="$(jq -r '.success' <<< "${response}")"
+          if [[ "${success}" != "true" ]]; then
+            echo "${response}" | jq .
+            exit 1
+          fi
+
+          echo "DNS record is ready:"
+          echo "${response}" | jq -r '.result | "\(.type) \(.name) -> \(.content), proxied=\(.proxied), ttl=\(.ttl)"'
