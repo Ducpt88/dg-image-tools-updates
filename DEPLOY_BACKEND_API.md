@@ -47,6 +47,26 @@ ADMIN_ALERT_EMAIL=hoangvant77internet@gmail.com
 5. In the DNS manager for `ducpt.com`, add the CNAME record Render gives for `api.ducpt.com`.
 6. Wait for Render TLS certificate to become active.
 
+After the Render service exists, copy its deploy hook URL into this GitHub Actions secret:
+
+```text
+RENDER_DEPLOY_HOOK_URL=<Render deploy hook URL>
+```
+
+Optional GitHub Actions variable:
+
+```text
+BACKEND_HEALTH_URL=https://api.ducpt.com/healthz
+```
+
+Then GitHub Actions can deploy and verify the backend online without this computer:
+
+```text
+Actions -> Deploy Backend -> Run workflow
+```
+
+The deploy workflow also runs automatically when backend, sales page, package, Render config, or workflow files are pushed to `main`.
+
 ## Online DNS automation
 
 Current public DNS for `ducpt.com` uses Namecheap nameservers:

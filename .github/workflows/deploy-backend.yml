@@ -1,0 +1,67 @@
+name: Deploy Backend
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - "server/**"
+      - "image/**"
+      - "package.json"
+      - "package-lock.json"
+      - "render.yaml"
+      - ".github/workflows/deploy-backend.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    name: Trigger Render deploy and verify health
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Render deploy hook
+        env:
+          RENDER_DEPLOY_HOOK_URL: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [[ -z "${RENDER_DEPLOY_HOOK_URL}" ]]; then
+            echo "Missing RENDER_DEPLOY_HOOK_URL GitHub secret." >&2
+            echo "Create a Render Web Service from render.yaml, then add its deploy hook URL as a repo secret." >&2
+            exit 1
+          fi
+
+          curl -fsS -X POST "${RENDER_DEPLOY_HOOK_URL}" >/dev/null
+          echo "Render deploy hook triggered."
+
+      - name: Wait for backend health
+        env:
+          BACKEND_HEALTH_URL: ${{ vars.BACKEND_HEALTH_URL }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          url="${BACKEND_HEALTH_URL:-https://api.ducpt.com/healthz}"
+          echo "Waiting for ${url}"
+
+          for attempt in $(seq 1 40); do
+            status="$(curl -k -sS -o /tmp/health.json -w "%{http_code}" "${url}" || true)"
+            if [[ "${status}" == "200" ]] && jq -e '.ok == true' /tmp/health.json >/dev/null 2>&1; then
+              cat /tmp/health.json
+              echo
+              echo "Backend is healthy."
+              exit 0
+            fi
+
+            echo "Attempt ${attempt}/40: status=${status}"
+            sleep 15
+          done
+
+          echo "Backend did not become healthy in time." >&2
+          if [[ -f /tmp/health.json ]]; then
+            cat /tmp/health.json >&2 || true
+          fi
+          exit 1
