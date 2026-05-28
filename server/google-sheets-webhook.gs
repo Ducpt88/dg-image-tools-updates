@@ -68,7 +68,9 @@ function doPost(e) {
       MailApp.sendEmail({
         to: data.to,
         subject: data.subject,
-        body: data.body
+        body: data.body,
+        name: 'DG Image Tools',
+        htmlBody: data.htmlBody || undefined
       });
     }
   } else if (data.type === 'security_alert') {

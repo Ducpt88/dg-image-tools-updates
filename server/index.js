@@ -257,43 +257,99 @@ const getPlanDays = (order) => {
   return Math.max(1, Math.round(Number(order.months || 1) * 30));
 };
 
+const escapeHtml = (value) => String(value || '')
+  .replace(/&/g, '&amp;')
+  .replace(/</g, '&lt;')
+  .replace(/>/g, '&gt;')
+  .replace(/"/g, '&quot;')
+  .replace(/'/g, '&#39;');
+
+const buildCustomerEmailHtml = ({ order, password, kind }) => {
+  const isTrial = kind === 'trial';
+  const title = isTrial
+    ? 'Tài khoản dùng thử đã sẵn sàng'
+    : 'Thanh toán thành công, tài khoản đã kích hoạt';
+  const lead = isTrial
+    ? 'Bạn có thể đăng nhập app ngay bằng thông tin bên dưới. Email hướng dẫn đã được gửi tự động từ hệ thống DG Image Tools.'
+    : 'Hệ thống đã xác nhận thanh toán và kích hoạt tài khoản DG Image Tools của bạn.';
+  const accent = isTrial ? '#2563eb' : '#047857';
+  const heroImage = 'https://ducpt.com/image/assets/real-youtube.jpg';
+  const rows = [
+    ['Gói sử dụng', order.planName],
+    ['Email đăng nhập', order.email],
+    ['Mật khẩu mặc định', password],
+    ['Số ảnh được tạo', order.quotaTotal],
+    ['Thời hạn sử dụng', order.expiresAt]
+  ];
+  const paidCta = isTrial ? '' : `
+    <p style="margin:18px 0 8px;font-size:15px;line-height:1.6;color:#334155;">Bạn đã mua gói trả phí, hãy vào nhóm Zalo hỗ trợ để nhận thông báo và hỗ trợ nhanh khi cần.</p>
+    <a href="${escapeHtml(ZALO_GROUP_URL)}" style="display:inline-block;margin:0 0 14px;padding:12px 18px;border-radius:8px;background:#047857;color:#ffffff;text-decoration:none;font-weight:800;">Vào nhóm Zalo trả phí</a>`;
+
+  return `<!doctype html>
+<html lang="vi">
+  <body style="margin:0;background:#f3f6fb;font-family:Arial,Helvetica,sans-serif;color:#0f172a;">
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f3f6fb;padding:24px 0;">
+      <tr><td align="center">
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:640px;background:#ffffff;border:1px solid #dbe3ef;border-radius:12px;overflow:hidden;">
+          <tr><td>
+            <img src="${heroImage}" alt="DG Image Tools" width="640" style="display:block;width:100%;max-height:210px;object-fit:cover;border:0;">
+          </td></tr>
+          <tr><td style="padding:28px 28px 10px;">
+            <p style="margin:0 0 8px;color:${accent};font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;">DG Image Tools</p>
+            <h1 style="margin:0 0 12px;font-size:26px;line-height:1.25;color:#0f172a;">${title}</h1>
+            <p style="margin:0 0 20px;font-size:15px;line-height:1.6;color:#334155;">Xin chào ${escapeHtml(order.customerName || 'bạn')}, ${lead}</p>
+            <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:separate;border-spacing:0;border:1px solid #dbe3ef;border-radius:10px;overflow:hidden;">
+              ${rows.map(([label, value]) => `<tr><td style="padding:12px 14px;background:#f8fafc;border-bottom:1px solid #e5edf7;width:42%;font-size:13px;color:#64748b;font-weight:700;">${escapeHtml(label)}</td><td style="padding:12px 14px;border-bottom:1px solid #e5edf7;font-size:14px;color:#0f172a;font-weight:800;">${escapeHtml(value)}</td></tr>`).join('')}
+            </table>
+            <p style="margin:18px 0 8px;font-size:15px;line-height:1.6;color:#334155;">Link hướng dẫn sử dụng:</p>
+            <a href="${escapeHtml(APP_GUIDE_URL)}" style="display:inline-block;margin:0 0 14px;padding:12px 18px;border-radius:8px;background:#2563eb;color:#ffffff;text-decoration:none;font-weight:800;">Mở hướng dẫn</a>
+            ${paidCta}
+            <p style="margin:14px 0 0;font-size:13px;line-height:1.6;color:#64748b;">${isTrial ? 'Gói dùng thử không bao gồm quyền vào nhóm Zalo trả phí. Nếu cần hỗ trợ cài đặt, bạn có thể phản hồi trực tiếp email này.' : 'Nếu chưa thấy email trong hộp thư đến, hãy kiểm tra mục Spam hoặc Quảng cáo.'}</p>
+          </td></tr>
+        </table>
+      </td></tr>
+    </table>
+  </body>
+</html>`;
+};
+
 const buildCustomerEmail = ({ order, password, kind }) => {
   const isTrial = kind === 'trial';
   const subject = isTrial
-    ? 'Tai khoan dung thu DG Image Tools cua ban da san sang'
-    : 'Chuc mung: DG Image Tools da xac nhan thanh toan va kich hoat tai khoan';
+    ? 'Tài khoản dùng thử DG Image Tools của bạn đã sẵn sàng'
+    : 'Chúc mừng: DG Image Tools đã xác nhận thanh toán và kích hoạt tài khoản';
   const lines = isTrial ? [
-    `Xin chao ${order.customerName || ''},`,
+    `Xin chào ${order.customerName || ''},`,
     '',
-    'Ban da dang ky goi dung thu 0d DG Image Tools thanh cong.',
+    'Bạn đã đăng ký gói dùng thử 0đ DG Image Tools thành công.',
     '',
-    `Email dang nhap: ${order.email}`,
-    `Mat khau mac dinh: ${password}`,
-    `So anh duoc tao: ${order.quotaTotal}`,
-    `Thoi han dung thu den: ${order.expiresAt}`,
+    `Email đăng nhập: ${order.email}`,
+    `Mật khẩu mặc định: ${password}`,
+    `Số ảnh được tạo: ${order.quotaTotal}`,
+    `Thời hạn dùng thử đến: ${order.expiresAt}`,
     '',
-    `Link huong dan: ${APP_GUIDE_URL}`,
+    `Link hướng dẫn: ${APP_GUIDE_URL}`,
     '',
-    'Hay dang nhap app bang email nay. Neu can ho tro tao tai khoan hoac cai app, hay phan hoi email nay de duoc huong dan.'
+    'Hãy đăng nhập app bằng email này. Gói dùng thử không bao gồm quyền vào nhóm Zalo trả phí. Nếu cần hỗ trợ cài app, hãy phản hồi email này.'
   ] : [
-    `Xin chao ${order.customerName || ''},`,
+    `Xin chào ${order.customerName || ''},`,
     '',
-    `Chuc mung, he thong da xac nhan thanh toan don ${order.code}.`,
-    'Tai khoan DG Image Tools cua ban da duoc tao/kich hoat tu dong.',
+    `Chúc mừng, hệ thống đã xác nhận thanh toán đơn ${order.code}.`,
+    'Tài khoản DG Image Tools của bạn đã được tạo/kích hoạt tự động.',
     '',
-    `Goi: ${order.planName}`,
-    `Email dang nhap: ${order.email}`,
-    `Mat khau mac dinh: ${password}`,
-    `So anh duoc tao: ${order.quotaTotal}`,
-    `Thoi han su dung den: ${order.expiresAt}`,
+    `Gói: ${order.planName}`,
+    `Email đăng nhập: ${order.email}`,
+    `Mật khẩu mặc định: ${password}`,
+    `Số ảnh được tạo: ${order.quotaTotal}`,
+    `Thời hạn sử dụng đến: ${order.expiresAt}`,
     '',
-    `Vao nhom Zalo ho tro truoc: ${ZALO_GROUP_URL}`,
-    `Sau do kiem tra email nay de lay huong dan va tai khoan: ${APP_GUIDE_URL}`,
+    `Vào nhóm Zalo trả phí: ${ZALO_GROUP_URL}`,
+    `Link hướng dẫn sử dụng: ${APP_GUIDE_URL}`,
     '',
-    'Neu can doi mat khau hoac ho tro thiet bi, hay nhan tin trong nhom Zalo.'
+    'Nếu cần đổi mật khẩu hoặc hỗ trợ thiết bị, hãy nhắn tin trong nhóm Zalo.'
   ];
 
-  return { subject, body: lines.join('\n') };
+  return { subject, body: lines.join('\n'), htmlBody: buildCustomerEmailHtml({ order, password, kind }) };
 };
 
 const buildVietQrUrl = ({ amount, content }) => {
@@ -668,6 +724,12 @@ const sendSheetEvent = async (event) => {
   }
 };
 
+const queueSheetEvent = (event) => {
+  sendSheetEvent(event).catch((error) => {
+    console.error('Sheet event queue failed:', error.message);
+  });
+};
+
 const sendSecurityAlert = async (event) => sendSheetEvent({
   type: 'security_alert',
   alertEmail: ADMIN_ALERT_EMAIL,
@@ -687,9 +749,21 @@ const sendCustomerEmail = async ({ order, password, kind }) => {
     quotaTotal: order.quotaTotal,
     expiresAt: order.expiresAt,
     subject: email.subject,
-    body: email.body
+    body: email.body,
+    htmlBody: email.htmlBody
   });
   return { ...email, sent, sentAt: sent ? new Date().toISOString() : null };
+};
+
+const queueCustomerEmail = ({ order, password, kind }) => {
+  sendCustomerEmail({ order, password, kind })
+    .then((email) => {
+      if (!email.sentAt) return;
+      return attachOrderAccount(order.code, { emailedAt: email.sentAt });
+    })
+    .catch((error) => {
+      console.error('Customer email queue failed:', error.message);
+    });
 };
 
 const activateOrderAccount = async (order, kind) => {
@@ -705,8 +779,9 @@ const activateOrderAccount = async (order, kind) => {
   });
   const password = account.accountPassword;
   const enrichedOrder = { ...order, expiresAt, accountEmail: account.email, accountUserId: account.id };
-  const email = await sendCustomerEmail({ order: enrichedOrder, password, kind });
-  return attachOrderAccount(order.code, { user: account, emailedAt: email.sentAt, expiresAt });
+  const activatedOrder = await attachOrderAccount(order.code, { user: account, expiresAt });
+  queueCustomerEmail({ order: enrichedOrder, password, kind });
+  return activatedOrder;
 };
 
 const readQuotaNumber = (data, keys) => {
@@ -1236,7 +1311,7 @@ const createOrderHandler = async (req, res) => {
       deviceLimit: selectedPlan.deviceLimit,
       months: selectedPlan.months
     });
-    await sendSheetEvent({
+    queueSheetEvent({
       type: 'sales_order',
       sheetId: SALES_SHEET_ID,
       paymentRequired: Number(order.price || 0) > 0,
@@ -1245,7 +1320,7 @@ const createOrderHandler = async (req, res) => {
 
     if (Number(order.price || 0) <= 0) {
       order = await activateOrderAccount(order, 'trial');
-      await sendSheetEvent({
+      queueSheetEvent({
         type: 'sales_trial_registered',
         sheetId: SALES_SHEET_ID,
         ...order
@@ -1305,7 +1380,7 @@ const sepayWebhookHandler = async (req, res) => {
     payload
   });
   order = await activateOrderAccount(order, 'paid');
-  await sendSheetEvent({
+  queueSheetEvent({
     type: 'sales_payment_paid',
     sheetId: SALES_SHEET_ID,
     ...order
