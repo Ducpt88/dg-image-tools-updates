@@ -74,6 +74,7 @@ const publicUser = (user) => ({
   email: user.email,
   role: user.role,
   status: user.status,
+  salesAccountNo: user.salesAccountNo || null,
   planName: user.planName || 'Gói tháng',
   monthlyPrice: Number(user.monthlyPrice || 0),
   paymentStatus: user.paymentStatus || 'paid',
@@ -102,6 +103,17 @@ const addDaysIso = (startIso, days) => {
   start.setUTCDate(start.getUTCDate() + duration);
   return start.toISOString();
 };
+
+const getNextSalesAccountNo = (users = []) => {
+  const maxAssigned = users.reduce((max, user) => Math.max(max, Number(user.salesAccountNo || 0)), 0);
+  if (maxAssigned > 0) {
+    return maxAssigned + 1;
+  }
+
+  return users.filter((user) => user.role !== 'admin').length + 1;
+};
+
+const getSalesAccountPassword = (accountNo) => `image-dg${Number(accountNo || 1)}`;
 
 const activateUserIfNeeded = (user, nowIso = new Date().toISOString()) => {
   if (!user || user.role === 'admin') {
@@ -256,7 +268,7 @@ const createUser = async ({
 
 const createOrUpdateSalesUser = async ({
   email,
-  password,
+  password = '',
   planName = 'Goi thang',
   monthlyPrice = 99000,
   paymentStatus = 'paid',
@@ -267,15 +279,18 @@ const createOrUpdateSalesUser = async ({
   const db = await readDb();
   const normalized = String(email || '').trim().toLowerCase();
 
-  if (!normalized || !password) {
-    throw new Error('Email va mat khau la bat buoc.');
+  if (!normalized) {
+    throw new Error('Email la bat buoc.');
   }
 
   const now = new Date().toISOString();
   let user = db.users.find((item) => item.email === normalized);
-  const passwordHash = await bcrypt.hash(password, 12);
+  const salesAccountNo = user?.salesAccountNo || getNextSalesAccountNo(db.users);
+  const accountPassword = password || getSalesAccountPassword(salesAccountNo);
+  const passwordHash = await bcrypt.hash(accountPassword, 12);
 
   if (user) {
+    user.salesAccountNo = salesAccountNo;
     user.passwordHash = passwordHash;
     user.status = 'active';
     user.role = user.role || 'user';
@@ -291,6 +306,7 @@ const createOrUpdateSalesUser = async ({
     user = {
       id: crypto.randomUUID(),
       email: normalized,
+      salesAccountNo,
       passwordHash,
       role: 'user',
       status: 'active',
@@ -310,7 +326,7 @@ const createOrUpdateSalesUser = async ({
   }
 
   await writeDb(db);
-  return publicUser(user);
+  return { ...publicUser(user), accountPassword };
 };
 
 const publicOrder = (order) => ({

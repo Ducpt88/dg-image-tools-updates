@@ -256,8 +256,6 @@ const getPlanDays = (order) => {
   return Math.max(1, Math.round(Number(order.months || 1) * 30));
 };
 
-const generateAccountPassword = () => 'DG' + crypto.randomBytes(5).toString('base64url') + crypto.randomInt(10, 99);
-
 const buildCustomerEmail = ({ order, password, kind }) => {
   const isTrial = kind === 'trial';
   const subject = isTrial
@@ -269,7 +267,7 @@ const buildCustomerEmail = ({ order, password, kind }) => {
     'Ban da dang ky goi dung thu 0d DG Image Tools thanh cong.',
     '',
     `Email dang nhap: ${order.email}`,
-    `Mat khau tam thoi: ${password}`,
+    `Mat khau mac dinh: ${password}`,
     `So anh duoc tao: ${order.quotaTotal}`,
     `Thoi han dung thu den: ${order.expiresAt}`,
     '',
@@ -285,7 +283,7 @@ const buildCustomerEmail = ({ order, password, kind }) => {
     '',
     `Goi: ${order.planName}`,
     `Email dang nhap: ${order.email}`,
-    `Mat khau tam thoi: ${password}`,
+    `Mat khau mac dinh: ${password}`,
     `So anh duoc tao: ${order.quotaTotal}`,
     `Thoi han su dung den: ${order.expiresAt}`,
     '',
@@ -696,10 +694,8 @@ const sendCustomerEmail = async ({ order, password, kind }) => {
 
 const activateOrderAccount = async (order, kind) => {
   const expiresAt = addDaysIsoDate(getPlanDays(order));
-  const password = generateAccountPassword();
   const account = await createOrUpdateSalesUser({
     email: order.email,
-    password,
     planName: order.planName,
     monthlyPrice: order.price,
     paymentStatus: kind === 'trial' ? 'trial' : 'paid',
@@ -707,6 +703,7 @@ const activateOrderAccount = async (order, kind) => {
     expiresAt,
     deviceLimit: order.deviceLimit
   });
+  const password = account.accountPassword;
   const enrichedOrder = { ...order, expiresAt, accountEmail: account.email, accountUserId: account.id };
   const email = await sendCustomerEmail({ order: enrichedOrder, password, kind });
   return attachOrderAccount(order.code, { user: account, emailedAt: email.sentAt, expiresAt });
