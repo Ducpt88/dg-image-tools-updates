@@ -37,6 +37,14 @@ const isOpenAiImageProvider = configuredRouterImageEndpoint
   : ROUTER_PROVIDER === 'openai';
 const ROUTER_IMAGE_ENDPOINT = configuredRouterImageEndpoint
   || (isOpenAiImageProvider ? OPENAI_IMAGE_ENDPOINT : 'http://localhost:20128/v1/images/generations');
+const ROUTER_IMAGE_FALLBACK_ENDPOINT = String(
+  process.env.ROUTER_IMAGE_FALLBACK_ENDPOINT
+  || (!isOpenAiImageProvider ? 'https://directly-ringtones-image-able.trycloudflare.com/v1/images/generations' : '')
+).trim();
+const ROUTER_IMAGE_ENDPOINTS = [...new Set([
+  ROUTER_IMAGE_ENDPOINT,
+  ROUTER_IMAGE_FALLBACK_ENDPOINT
+].filter(Boolean))];
 const ROUTER_IMAGE_MODEL = process.env.ROUTER_IMAGE_MODEL || (isOpenAiImageProvider ? 'gpt-image-1' : '');
 const ROUTER_QUOTA_ENDPOINT = process.env.ROUTER_QUOTA_ENDPOINT || '';
 const ROUTER_QUOTA_TOTAL = Number(process.env.ROUTER_QUOTA_TOTAL || 0);
@@ -729,16 +737,36 @@ const imageGenerationHandler = async (req, res) => {
 
     const payload = buildImagePayload(req.body);
 
-    const upstream = await fetch(ROUTER_IMAGE_ENDPOINT, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${ROUTER_API_KEY}`,
-        Accept: isOpenAiImageProvider ? 'application/json' : 'text/event-stream'
-      },
-      body: JSON.stringify(payload)
-    });
-    const rawText = await upstream.text();
+    let upstream = null;
+    let rawText = '';
+    let lastFetchError = null;
+
+    for (const endpoint of ROUTER_IMAGE_ENDPOINTS) {
+      try {
+        upstream = await fetch(endpoint, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${ROUTER_API_KEY}`,
+            Accept: isOpenAiImageProvider ? 'application/json' : 'text/event-stream'
+          },
+          body: JSON.stringify(payload)
+        });
+        rawText = await upstream.text();
+        if (upstream.ok || upstream.status < 500 || endpoint === ROUTER_IMAGE_ENDPOINTS.at(-1)) {
+          break;
+        }
+      } catch (error) {
+        lastFetchError = error;
+        if (endpoint === ROUTER_IMAGE_ENDPOINTS.at(-1)) {
+          throw error;
+        }
+      }
+    }
+
+    if (!upstream && lastFetchError) {
+      throw lastFetchError;
+    }
 
     if (!upstream.ok) {
       const event = await recordImageEvent({
