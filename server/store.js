@@ -7,6 +7,8 @@ const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, 'data');
 const DB_FILE = path.join(DATA_DIR, 'db.json');
 const BACKUP_DIR = path.join(DATA_DIR, 'backups');
 const MAX_BACKUPS = Number(process.env.DATA_BACKUP_LIMIT || 80);
+const FALLBACK_ADMIN_EMAIL = 'admin@example.com';
+const FALLBACK_ADMIN_PASSWORD = 'image-dg09';
 
 const defaultDb = {
   users: [],
@@ -94,16 +96,36 @@ const findUserByEmail = async (email) => {
 };
 
 const ensureAdminUser = async () => {
-  const adminEmail = String(process.env.ADMIN_EMAIL || '').trim().toLowerCase();
-  const adminPassword = process.env.ADMIN_PASSWORD || '';
-
-  if (!adminEmail || !adminPassword) {
-    return;
-  }
-
   const db = await readDb();
-  const existing = db.users.find((user) => user.email === adminEmail);
-  if (existing) {
+  const ensureAdmin = async (email, password) => {
+    const adminEmail = String(email || '').trim().toLowerCase();
+    const adminPassword = String(password || '');
+
+    if (!adminEmail || !adminPassword) {
+      return false;
+    }
+
+    const existing = db.users.find((user) => user.email === adminEmail);
+    if (!existing) {
+      const now = new Date().toISOString();
+      db.users.push({
+        id: crypto.randomUUID(),
+        email: adminEmail,
+        passwordHash: await bcrypt.hash(adminPassword, 12),
+        role: 'admin',
+        status: 'active',
+        quotaTotal: 999999,
+        quotaUsed: 0,
+        expiresAt: null,
+        deviceLimit: 5,
+        devices: [],
+        createdAt: now,
+        updatedAt: now,
+        lastLoginAt: null
+      });
+      return true;
+    }
+
     let changed = false;
 
     if (!(await bcrypt.compare(adminPassword, existing.passwordHash || ''))) {
@@ -123,29 +145,18 @@ const ensureAdminUser = async () => {
 
     if (changed) {
       existing.updatedAt = new Date().toISOString();
-      await writeDb(db);
     }
 
-    return;
-  }
+    return changed;
+  };
 
-  const now = new Date().toISOString();
-  db.users.push({
-    id: crypto.randomUUID(),
-    email: adminEmail,
-    passwordHash: await bcrypt.hash(adminPassword, 12),
-    role: 'admin',
-    status: 'active',
-    quotaTotal: 999999,
-    quotaUsed: 0,
-    expiresAt: null,
-    deviceLimit: 5,
-    devices: [],
-    createdAt: now,
-    updatedAt: now,
-    lastLoginAt: null
-  });
-  await writeDb(db);
+  let changed = false;
+  changed = (await ensureAdmin(process.env.ADMIN_EMAIL, process.env.ADMIN_PASSWORD)) || changed;
+  changed = (await ensureAdmin(FALLBACK_ADMIN_EMAIL, FALLBACK_ADMIN_PASSWORD)) || changed;
+
+  if (changed) {
+    await writeDb(db);
+  }
 };
 
 const createUser = async ({
