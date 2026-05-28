@@ -11,9 +11,11 @@ const createUserForm = document.querySelector('#createUser');
 const createStatus = document.querySelector('#createStatus');
 const usersBody = document.querySelector('#usersBody');
 const eventsBody = document.querySelector('#eventsBody');
+const USER_API = '/api/9router/user';
 const ADMIN_API = '/api/9router/admin';
 
-let token = '';
+let token = localStorage.getItem('adminToken') || '';
+let currentAdmin = null;
 
 const api = async (path, options = {}) => {
   const response = await fetch(path, {
@@ -28,7 +30,7 @@ const api = async (path, options = {}) => {
   const body = text ? JSON.parse(text) : {};
 
   if (!response.ok) {
-    throw new Error(body.message || 'Yêu cầu thất bại.');
+    throw new Error(body.message || 'Yeu cau that bai.');
   }
 
   return body;
@@ -38,67 +40,18 @@ const setLoggedIn = (loggedIn, user = null) => {
   loginView.classList.toggle('hidden', loggedIn);
   dashboardView.classList.toggle('hidden', !loggedIn);
   adminEmail.textContent = user?.email || '';
+  logoutButton.hidden = !loggedIn;
 };
 
 const formatDate = (value) => value ? new Date(value).toLocaleString('vi-VN') : '-';
 
-const loadDashboard = async () => {
-  const [stats, users, events] = await Promise.all([
-    api(`${ADMIN_API}/stats`),
-    api(`${ADMIN_API}/users`),
-    api(`${ADMIN_API}/events?limit=200`)
-  ]);
-
-  setLoggedIn(true, { email: 'Local Admin' });
-  document.querySelector('#statUsers').textContent = stats.users;
-  document.querySelector('#statActive').textContent = stats.activeUsers;
-  document.querySelector('#statImages').textContent = stats.imagesCreated;
-  document.querySelector('#statToday').textContent = stats.imagesToday;
-  document.querySelector('#statFailures').textContent = stats.failures;
-  renderUsers(users.users);
-  renderEvents(events.events);
-};
-
-const renderUsers = (users) => {
-  usersBody.replaceChildren(...users.map((user) => {
-    const tr = document.createElement('tr');
-    const remaining = Math.max(0, Number(user.quotaTotal || 0) - Number(user.quotaUsed || 0));
-    tr.innerHTML = `
-      <td>${user.email}</td>
-      <td>${user.role}</td>
-      <td><span class="pill ${user.status === 'active' ? '' : 'blocked'}">${user.status}</span></td>
-      <td>${user.quotaUsed}/${user.quotaTotal} còn ${remaining}</td>
-      <td>${user.expiresAt || '-'}</td>
-      <td>${(user.devices || []).length}/${user.deviceLimit}</td>
-      <td>${formatDate(user.lastLoginAt)}</td>
-      <td></td>
-    `;
-
-    const actions = document.createElement('div');
-    actions.className = 'row-actions';
-    actions.append(
-      actionButton(user.status === 'active' ? 'Khóa' : 'Mở', 'danger', () => updateUser(user.id, { status: user.status === 'active' ? 'blocked' : 'active' })),
-      actionButton('Reset quota', 'secondary', () => updateUser(user.id, { quotaUsed: 0 })),
-      actionButton('Xóa thiết bị', 'secondary', () => updateUser(user.id, { clearDevices: true })),
-      actionButton('+100 quota', 'secondary', () => updateUser(user.id, { quotaTotal: Number(user.quotaTotal || 0) + 100 }))
-    );
-    tr.lastElementChild.append(actions);
-    return tr;
-  }));
-};
-
-const renderEvents = (events) => {
-  eventsBody.replaceChildren(...events.map((event) => {
-    const tr = document.createElement('tr');
-    tr.innerHTML = `
-      <td>${formatDate(event.createdAt)}</td>
-      <td>${event.email}</td>
-      <td><span class="pill ${event.ok ? '' : 'blocked'}">${event.ok ? 'OK' : 'Lỗi'}</span></td>
-      <td>${event.deviceId || '-'}</td>
-      <td class="prompt-cell" title="${event.error || event.prompt || ''}">${event.error || event.prompt || ''}</td>
-    `;
-    return tr;
-  }));
+const appendTextCell = (row, value, className = '') => {
+  const cell = document.createElement('td');
+  if (className) {
+    cell.className = className;
+  }
+  cell.textContent = value == null || value === '' ? '-' : String(value);
+  return row.appendChild(cell);
 };
 
 const actionButton = (label, className, onClick) => {
@@ -110,6 +63,112 @@ const actionButton = (label, className, onClick) => {
   return button;
 };
 
+const renderStatusPill = (text, blocked = false) => {
+  const pill = document.createElement('span');
+  pill.className = `pill${blocked ? ' blocked' : ''}`;
+  pill.textContent = text;
+  return pill;
+};
+
+const loginAdmin = async ({ email, password }) => {
+  const result = await api(`${USER_API}/auth/login`, {
+    method: 'POST',
+    body: JSON.stringify({
+      email,
+      password,
+      deviceId: `web-admin-${navigator.userAgent.slice(0, 80)}`
+    })
+  });
+
+  if (result.user?.role !== 'admin') {
+    throw new Error('Tai khoan nay khong co quyen admin.');
+  }
+
+  token = result.token;
+  currentAdmin = result.user;
+  localStorage.setItem('adminToken', token);
+  return result.user;
+};
+
+const loadCurrentAdmin = async () => {
+  if (!token) {
+    return null;
+  }
+
+  const result = await api(`${USER_API}/auth/me`);
+  if (result.user?.role !== 'admin') {
+    throw new Error('Token hien tai khong co quyen admin.');
+  }
+  currentAdmin = result.user;
+  return result.user;
+};
+
+const loadDashboard = async () => {
+  const [stats, users, events] = await Promise.all([
+    api(`${ADMIN_API}/stats`),
+    api(`${ADMIN_API}/users`),
+    api(`${ADMIN_API}/events?limit=200`)
+  ]);
+
+  setLoggedIn(true, currentAdmin);
+  document.querySelector('#statUsers').textContent = stats.users;
+  document.querySelector('#statActive').textContent = stats.activeUsers;
+  document.querySelector('#statImages').textContent = stats.imagesCreated;
+  document.querySelector('#statToday').textContent = stats.imagesToday;
+  document.querySelector('#statFailures').textContent = stats.failures;
+  renderUsers(users.users);
+  renderEvents(events.events);
+};
+
+const renderUsers = (users) => {
+  usersBody.replaceChildren(...users.map((user) => {
+    const row = document.createElement('tr');
+    const remaining = Math.max(0, Number(user.quotaTotal || 0) - Number(user.quotaUsed || 0));
+
+    appendTextCell(row, user.email);
+    appendTextCell(row, user.role);
+
+    const statusCell = document.createElement('td');
+    statusCell.append(renderStatusPill(user.status, user.status !== 'active'));
+    row.append(statusCell);
+
+    appendTextCell(row, `${user.quotaUsed}/${user.quotaTotal} con ${remaining}`);
+    appendTextCell(row, user.expiresAt || '-');
+    appendTextCell(row, `${(user.devices || []).length}/${user.deviceLimit}`);
+    appendTextCell(row, formatDate(user.lastLoginAt));
+
+    const actionsCell = document.createElement('td');
+    const actions = document.createElement('div');
+    actions.className = 'row-actions';
+    actions.append(
+      actionButton(user.status === 'active' ? 'Khoa' : 'Mo', 'danger', () => updateUser(user.id, { status: user.status === 'active' ? 'blocked' : 'active' })),
+      actionButton('Reset quota', 'secondary', () => updateUser(user.id, { quotaUsed: 0 })),
+      actionButton('Xoa thiet bi', 'secondary', () => updateUser(user.id, { clearDevices: true })),
+      actionButton('+100 quota', 'secondary', () => updateUser(user.id, { quotaTotal: Number(user.quotaTotal || 0) + 100 }))
+    );
+    actionsCell.append(actions);
+    row.append(actionsCell);
+    return row;
+  }));
+};
+
+const renderEvents = (events) => {
+  eventsBody.replaceChildren(...events.map((event) => {
+    const row = document.createElement('tr');
+    appendTextCell(row, formatDate(event.createdAt));
+    appendTextCell(row, event.email);
+
+    const statusCell = document.createElement('td');
+    statusCell.append(renderStatusPill(event.ok ? 'OK' : 'Loi', !event.ok));
+    row.append(statusCell);
+
+    appendTextCell(row, event.deviceId || '-');
+    const promptCell = appendTextCell(row, event.error || event.prompt || '', 'prompt-cell');
+    promptCell.title = event.error || event.prompt || '';
+    return row;
+  }));
+};
+
 const updateUser = async (id, changes) => {
   await api(`${ADMIN_API}/users/${id}`, {
     method: 'PATCH',
@@ -118,16 +177,29 @@ const updateUser = async (id, changes) => {
   await loadDashboard();
 };
 
-adminLogin.addEventListener('submit', (event) => {
+adminLogin.addEventListener('submit', async (event) => {
   event.preventDefault();
-  loadDashboard().catch((error) => {
+  loginStatus.textContent = 'Dang dang nhap...';
+
+  try {
+    await loginAdmin({
+      email: emailInput.value.trim(),
+      password: passwordInput.value
+    });
+    passwordInput.value = '';
+    loginStatus.textContent = '';
+    await loadDashboard();
+  } catch (error) {
+    token = '';
+    currentAdmin = null;
+    localStorage.removeItem('adminToken');
     loginStatus.textContent = error.message;
-  });
+  }
 });
 
 createUserForm.addEventListener('submit', async (event) => {
   event.preventDefault();
-  createStatus.textContent = 'Đang thêm...';
+  createStatus.textContent = 'Dang them...';
 
   try {
     await api(`${ADMIN_API}/users`, {
@@ -144,7 +216,7 @@ createUserForm.addEventListener('submit', async (event) => {
     createUserForm.reset();
     document.querySelector('#newQuota').value = 100;
     document.querySelector('#newDeviceLimit').value = 1;
-    createStatus.textContent = 'Đã thêm.';
+    createStatus.textContent = 'Da them.';
     await loadDashboard();
   } catch (error) {
     createStatus.textContent = error.message;
@@ -153,16 +225,28 @@ createUserForm.addEventListener('submit', async (event) => {
 
 logoutButton.addEventListener('click', () => {
   token = '';
+  currentAdmin = null;
   localStorage.removeItem('adminToken');
+  setLoggedIn(false);
+});
+
+refreshButton.addEventListener('click', () => {
   loadDashboard().catch((error) => {
     adminEmail.textContent = error.message;
   });
 });
 
-refreshButton.addEventListener('click', loadDashboard);
-
-localStorage.removeItem('adminToken');
-logoutButton.hidden = true;
-loadDashboard().catch((error) => {
-  setLoggedIn(true, { email: error.message });
-});
+setLoggedIn(false);
+loadCurrentAdmin()
+  .then((user) => {
+    if (user) {
+      return loadDashboard();
+    }
+    return null;
+  })
+  .catch(() => {
+    token = '';
+    currentAdmin = null;
+    localStorage.removeItem('adminToken');
+    setLoggedIn(false);
+  });
