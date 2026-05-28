@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="1280" viewBox="0 0 900 1280" role="img" aria-label="QR thanh toán 199.000 đồng">
+  <rect width="900" height="1280" rx="26" fill="#fff8dc"/>
+  <path d="M0 930c180-70 360-70 540 0s260 70 360 20v330H0z" fill="#9bd0f5"/>
+  <g fill="none" stroke="#f4d03f" stroke-width="10" opacity=".45">
+    <path d="M110 120l40 80M100 180l90-20M720 150l55 88M700 210l115-25"/>
+    <path d="M45 650l52 50M35 700l80-35M805 620l60 55M790 675l95-35"/>
+  </g>
+  <text x="450" y="190" text-anchor="middle" font-family="Arial, sans-serif" font-size="38" font-weight="700" fill="#30343b">HOÀNG VĂN ĐỨC</text>
+  <text x="450" y="238" text-anchor="middle" font-family="Arial, sans-serif" font-size="31" fill="#30343b">STK: PSP2610910700000069</text>
+  <text x="450" y="365" text-anchor="middle" font-family="Arial, sans-serif" font-size="52" font-weight="800" fill="#111">Tự hào là</text>
+  <text x="660" y="365" text-anchor="middle" font-family="Arial, sans-serif" font-size="52" font-style="italic" fill="#dc3545">người Việt Nam</text>
+  <rect x="250" y="455" width="400" height="575" rx="32" fill="#fff"/>
+  <text x="450" y="530" text-anchor="middle" font-family="Arial, sans-serif" font-size="31" font-weight="800" fill="#a0008c">momo  |  VietQR  |  napas 247</text>
+  <rect x="315" y="585" width="270" height="270" fill="#fff" stroke="#111" stroke-width="8"/>
+  <g fill="#111">
+    <rect x="335" y="605" width="55" height="55"/><rect x="510" y="605" width="55" height="55"/>
+    <rect x="335" y="780" width="55" height="55"/><rect x="420" y="650" width="25" height="25"/>
+    <rect x="470" y="685" width="35" height="35"/><rect x="405" y="735" width="45" height="35"/>
+    <rect x="535" y="735" width="28" height="28"/><rect x="455" y="790" width="35" height="35"/>
+    <rect x="365" y="700" width="25" height="25"/><rect x="510" y="800" width="25" height="25"/>
+  </g>
+  <circle cx="450" cy="720" r="38" fill="#fff" stroke="#f2c7e8" stroke-width="8"/>
+  <text x="450" y="733" text-anchor="middle" font-family="Arial, sans-serif" font-size="28" fill="#d12b8a">VĐ</text>
+  <line x1="250" y1="910" x2="650" y2="910" stroke="#e5e7eb" stroke-width="2"/>
+  <text x="450" y="985" text-anchor="middle" font-family="Arial, sans-serif" font-size="44" font-weight="800" fill="#1e88e5">199.000đ</text>
+  <text x="450" y="1045" text-anchor="middle" font-family="Arial, sans-serif" font-size="35" fill="#30343b">DG-image-tool</text>
+</svg>

@@ -73,7 +73,7 @@ const publicUser = (user) => ({
   role: user.role,
   status: user.status,
   planName: user.planName || 'Gói tháng',
-  monthlyPrice: Number(user.monthlyPrice || 99000),
+  monthlyPrice: Number(user.monthlyPrice || 0),
   paymentStatus: user.paymentStatus || 'paid',
   quotaTotal: user.quotaTotal,
   quotaUsed: user.quotaUsed,
@@ -253,9 +253,20 @@ const updateUser = async (id, changes) => {
     throw new Error('Không tìm thấy tài khoản.');
   }
 
+  if (Object.hasOwn(changes, 'email')) {
+    const normalized = String(changes.email || '').trim().toLowerCase();
+    if (!normalized) {
+      throw new Error('Email la bat buoc.');
+    }
+    if (db.users.some((item) => item.id !== id && item.email === normalized)) {
+      throw new Error('Email da ton tai.');
+    }
+    user.email = normalized;
+  }
+
   ['role', 'status', 'planName', 'monthlyPrice', 'paymentStatus', 'quotaTotal', 'quotaUsed', 'expiresAt', 'deviceLimit'].forEach((key) => {
     if (Object.hasOwn(changes, key)) {
-      user[key] = ['quotaTotal', 'quotaUsed', 'deviceLimit'].includes(key) ? Number(changes[key]) : changes[key];
+      user[key] = ['monthlyPrice', 'quotaTotal', 'quotaUsed', 'deviceLimit'].includes(key) ? Number(changes[key]) : changes[key];
     }
   });
 
@@ -348,6 +359,41 @@ const recordImageEvent = async ({ userId, ok, prompt, error, savedPath, deviceId
   return event;
 };
 
+const recordSecurityEvent = async ({
+  userId = '',
+  email = '',
+  deviceId = '',
+  reason,
+  severity = 'medium',
+  appFlavor = '',
+  appVersion = '',
+  detail = {}
+}) => {
+  const db = await readDb();
+  const now = new Date().toISOString();
+  const event = {
+    id: crypto.randomUUID(),
+    type: 'security',
+    ok: false,
+    userId,
+    email,
+    deviceId,
+    reason: String(reason || 'security_event').slice(0, 120),
+    severity: String(severity || 'medium').slice(0, 30),
+    appFlavor,
+    appVersion,
+    detail: JSON.stringify(detail || {}).slice(0, 1000),
+    error: String(reason || 'security_event').slice(0, 1000),
+    prompt: '',
+    savedPath: null,
+    createdAt: now
+  };
+
+  db.events.push(event);
+  await writeDb(db);
+  return event;
+};
+
 const listEvents = async (limit = 200) => {
   const db = await readDb();
   return db.events.slice(-Number(limit || 200)).reverse();
@@ -390,6 +436,7 @@ module.exports = {
   publicUser,
   validateUserForUse,
   recordImageEvent,
+  recordSecurityEvent,
   listEvents,
   getStats,
   getStorageInfo,

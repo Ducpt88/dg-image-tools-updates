@@ -1,6 +1,6 @@
 {
   "name": "9router-electron-tool",
-  "version": "1.9.2",
+  "version": "1.9.4",
   "description": "Desktop Electron tool scaffold for 9router.",
   "main": "src/main.js",
   "scripts": {
@@ -8,8 +8,8 @@
     "smoke": "node scripts/run-electron.js --smoke-test",
     "server": "node server/index.js",
     "dist": "electron-builder --win nsis",
-    "dist:user": "electron-builder --win nsis -c.appId=com.9router.image-tool.user -c.productName=\"DG Image Tools user 1.9\" -c.nsis.shortcutName=\"DG Image Tools user 1.9\" -c.nsis.artifactName=\"DG Image Tools user 1.9-Setup-${arch}.${ext}\"",
-    "dist:user:publish": "electron-builder --win nsis --publish always -c.appId=com.9router.image-tool.user -c.productName=\"DG Image Tools user 1.9\" -c.nsis.shortcutName=\"DG Image Tools user 1.9\" -c.nsis.artifactName=\"DG Image Tools user 1.9-Setup-${arch}.${ext}\"",
+    "dist:user": "electron-builder --win nsis -c.appId=com.9router.image-tool.user -c.productName=\"DG Image Tools user 1.9\" -c.extraMetadata.flavor=user -c.nsis.shortcutName=\"DG Image Tools user 1.9\" -c.nsis.artifactName=\"DG Image Tools user 1.9-Setup-${arch}.${ext}\"",
+    "dist:user:publish": "electron-builder --win nsis --publish always -c.appId=com.9router.image-tool.user -c.productName=\"DG Image Tools user 1.9\" -c.extraMetadata.flavor=user -c.nsis.shortcutName=\"DG Image Tools user 1.9\" -c.nsis.artifactName=\"DG Image Tools user 1.9-Setup-${arch}.${ext}\"",
     "pack": "electron-builder --dir"
   },
   "keywords": [
@@ -22,6 +22,9 @@
   "build": {
     "appId": "com.9router.image-tool.admin",
     "productName": "DG Image Tools Admin 1.9",
+    "extraMetadata": {
+      "flavor": "admin"
+    },
     "directories": {
       "output": "dist"
     },

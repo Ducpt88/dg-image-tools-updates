@@ -9,8 +9,12 @@
   box-sizing: border-box;
 }
 
+[hidden] {
+  display: none !important;
+}
+
 body {
-  min-width: 760px;
+  min-width: 640px;
   min-height: 560px;
   margin: 0;
   overflow: auto;
@@ -34,6 +38,13 @@ body {
 
 .auth-locked .app-shell {
   display: none;
+}
+
+.user-build .private-config,
+.user-build .command-panel,
+.user-build .crown-button,
+.user-build #memberPanelOverlay {
+  display: none !important;
 }
 
 .login-panel {
@@ -76,6 +87,16 @@ input,
 select,
 textarea {
   font: inherit;
+}
+
+button,
+input,
+select,
+textarea,
+label,
+.panel-title,
+.brand-lockup {
+  min-width: 0;
 }
 
 .app-shell {
@@ -234,6 +255,47 @@ label span,
   line-height: 34px;
 }
 
+.section-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.section-heading h2 {
+  margin: 0;
+}
+
+.privacy-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 34px;
+}
+
+.privacy-toggle svg {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.connection-section.connection-hidden .section-fields {
+  display: none;
+}
+
+.connection-section .eye-closed,
+.connection-section.connection-hidden .eye-open {
+  display: none;
+}
+
+.connection-section.connection-hidden .eye-closed {
+  display: block;
+}
+
 .section-fields {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -250,7 +312,16 @@ label span,
 }
 
 .output-grid {
-  grid-template-columns: minmax(130px, 0.55fr) minmax(160px, 0.75fr) minmax(0, 1fr) minmax(0, 1.35fr);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.output-title-field,
+.output-path-field {
+  min-width: 0;
+}
+
+.output-path-field {
+  grid-column: 1 / -1;
 }
 
 label {
@@ -263,6 +334,7 @@ label {
 
 label span {
   min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .compact-grid label,
@@ -274,6 +346,117 @@ label span {
 
 .wide-field {
   grid-template-columns: 78px minmax(0, 1fr);
+}
+
+.gem-panel {
+  display: grid;
+  grid-template-columns: 78px minmax(0, 1fr);
+  align-items: start;
+  gap: 8px;
+}
+
+.gem-panel > span {
+  padding-top: 9px;
+  color: #475569;
+  font-size: 13px;
+  user-select: none;
+}
+
+.gem-workspace {
+  display: grid;
+  min-width: 0;
+  gap: 8px;
+}
+
+.gem-controls {
+  display: grid;
+  grid-template-columns: minmax(150px, 1fr) minmax(145px, 0.9fr) minmax(150px, auto);
+  gap: 8px;
+}
+
+.gem-actions {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(70px, auto);
+  gap: 8px;
+  min-width: 0;
+}
+
+.gem-reference-row {
+  display: grid;
+  grid-template-columns: minmax(92px, auto) minmax(0, 1fr) minmax(190px, 0.9fr);
+  align-items: center;
+  gap: 8px;
+}
+
+.logo-source-row {
+  display: grid;
+  grid-template-columns: minmax(96px, auto) minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.file-picker {
+  position: relative;
+  min-width: 92px;
+  overflow: hidden;
+}
+
+.file-picker input {
+  position: absolute;
+  inset: 0;
+  cursor: pointer;
+  opacity: 0;
+}
+
+.gem-file-name {
+  min-width: 0;
+  color: #64748b;
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.gem-similarity {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) 46px;
+  align-items: center;
+  gap: 8px;
+}
+
+.gem-similarity span {
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.gem-similarity input {
+  padding: 0;
+}
+
+.gem-similarity output {
+  color: #334155;
+  font-size: 12px;
+  font-weight: 800;
+  text-align: right;
+}
+
+.gem-workspace textarea {
+  min-height: 74px;
+}
+
+#gemInstruction {
+  display: none;
+}
+
+.gem-workspace.custom-gem #gemInstruction {
+  display: block;
+}
+
+#gemInstruction,
+#gemPromptOutput {
+  font-family: Consolas, "Liberation Mono", monospace;
+  font-size: 12px;
 }
 
 input,
@@ -320,6 +503,10 @@ textarea:focus {
   grid-template-columns: minmax(0, 1fr) auto;
 }
 
+.path-button {
+  min-width: 104px;
+}
+
 .api-key-row {
   grid-template-columns: minmax(0, 1fr) auto;
 }
@@ -361,8 +548,12 @@ textarea:focus {
   border-radius: 8px;
   padding: 0 14px;
   font-weight: 700;
+  line-height: 1.15;
+  text-align: center;
   text-decoration: none;
   cursor: pointer;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 .primary-button {
@@ -387,8 +578,10 @@ textarea:focus {
 }
 
 .compact {
-  min-width: 72px;
+  min-width: 68px;
   height: 32px;
+  padding: 0 10px;
+  font-size: 12px;
 }
 
 .crown-button {
@@ -543,8 +736,10 @@ textarea:focus {
 }
 
 .preview-error-text {
+  padding: 8px;
   font-size: 13px;
   font-weight: 800;
+  text-align: center;
 }
 
 .preview-tile-error .preview-caption {
@@ -556,9 +751,13 @@ textarea:focus {
   color: #334155;
   font-size: 12px;
   font-weight: 700;
+  line-height: 1.35;
+  display: -webkit-box;
+  max-height: 34px;
   overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
   text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 #previewImage {
@@ -573,6 +772,7 @@ textarea:focus {
 }
 
 pre {
+  max-height: 280px;
   margin: 0;
   border-top: 1px solid #e5e7eb;
   padding: 14px 18px;
@@ -581,6 +781,9 @@ pre {
   color: #d8f7e7;
   font-size: 12px;
   line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .hidden {
@@ -593,7 +796,7 @@ pre {
   z-index: 50;
   display: grid;
   place-items: center;
-  padding: 24px;
+  padding: 12px;
   background: rgba(15, 23, 42, 0.36);
 }
 
@@ -603,15 +806,15 @@ pre {
 
 .member-panel {
   display: grid;
-  width: min(1100px, 100%);
-  max-height: min(760px, calc(100vh - 48px));
+  width: min(1520px, calc(100vw - 24px));
+  max-height: calc(100vh - 24px);
   grid-template-rows: auto auto auto auto minmax(0, 1fr);
-  gap: 14px;
+  gap: 16px;
   overflow: hidden;
   border: 1px solid #e5e7eb;
   border-radius: 8px;
   background: #ffffff;
-  padding: 18px;
+  padding: 22px;
   box-shadow: 0 24px 72px rgba(15, 23, 42, 0.24);
 }
 
@@ -620,6 +823,17 @@ pre {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+}
+
+.member-panel-head h2 {
+  font-size: 24px;
+  line-height: 1.15;
+}
+
+.member-panel-head p {
+  max-width: 1100px;
+  margin-top: 6px;
+  overflow-wrap: anywhere;
 }
 
 .member-hero {
@@ -688,7 +902,7 @@ pre {
 
 .member-create {
   display: grid;
-  grid-template-columns: minmax(180px, 1.2fr) minmax(140px, 0.9fr) 130px 110px 90px 140px 90px auto;
+  grid-template-columns: minmax(240px, 1.35fr) minmax(170px, 0.9fr) 150px 130px 110px 155px 110px auto;
   gap: 8px;
 }
 
@@ -700,9 +914,10 @@ pre {
 }
 
 .member-table {
+  min-width: 1180px;
   width: 100%;
   border-collapse: collapse;
-  font-size: 13px;
+  font-size: 14px;
 }
 
 .member-table th,
@@ -718,7 +933,7 @@ pre {
   top: 0;
   background: #f8fafc;
   color: #334155;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 800;
 }
 
@@ -770,6 +985,36 @@ pre {
   font-size: 12px;
 }
 
+.member-edit-row {
+  background: #f8fafc;
+}
+
+.member-edit-row input,
+.member-edit-row select {
+  width: 100%;
+  min-height: 32px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  padding: 5px 8px;
+  background: #ffffff;
+  color: #0f172a;
+  font-size: 13px;
+}
+
+.member-edit-fields {
+  display: grid;
+  gap: 6px;
+}
+
+.member-edit-fields.two {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.member-password-edit {
+  flex: 1 1 130px;
+  max-width: 170px;
+}
+
 @media (max-width: 1180px) {
   .member-stats {
     grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -787,6 +1032,26 @@ pre {
 
   .output-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .output-path-field {
+    grid-column: 1 / -1;
+  }
+
+  .gem-controls {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .gem-actions {
+    grid-column: 1 / -1;
+  }
+
+  .gem-reference-row {
+    grid-template-columns: minmax(92px, auto) minmax(0, 1fr);
+  }
+
+  .gem-similarity {
+    grid-column: 1 / -1;
   }
 }
 
@@ -818,8 +1083,29 @@ pre {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  .output-path-field {
+    grid-column: 1 / -1;
+  }
+
   .preview-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .prompt-row,
+  .api-key-row,
+  .path-row,
+  .gem-controls,
+  .gem-reference-row,
+  .logo-source-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .gem-actions {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .gem-similarity {
+    grid-column: auto;
   }
 }
 
@@ -888,7 +1174,8 @@ pre {
   }
 
   label,
-  .wide-field {
+  .wide-field,
+  .gem-panel {
     grid-template-columns: minmax(86px, 0.28fr) minmax(0, 1fr);
   }
 
@@ -914,5 +1201,58 @@ pre {
 
   .preview-grid {
     grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 700px) {
+  .app-shell {
+    padding: 8px;
+  }
+
+  .generator-panel,
+  .preview-panel .panel-title {
+    padding: 12px;
+  }
+
+  .panel-title,
+  .user-actions {
+    flex-wrap: wrap;
+  }
+
+  h1,
+  h2 {
+    font-size: 16px;
+  }
+
+  p,
+  .panel-title span,
+  label span,
+  #statusText {
+    font-size: 12px;
+  }
+
+  label,
+  .wide-field,
+  .gem-panel {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 5px;
+  }
+
+  .prompt-row,
+  .gem-actions {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .primary-button,
+  .secondary-button,
+  .icon-button,
+  input,
+  select {
+    min-height: 30px;
+    height: auto;
+  }
+
+  textarea {
+    min-height: 84px;
   }
 }

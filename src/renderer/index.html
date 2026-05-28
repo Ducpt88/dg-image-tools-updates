@@ -2,8 +2,9 @@
 <html lang="vi">
   <head>
     <meta charset="UTF-8">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; connect-src 'self' http://localhost:* https://ducpt.com https://www.ducpt.com https://ducpt-9router-api.onrender.com;">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DG Image Tools Admin</title>
+    <title>DG Image Tools</title>
     <link rel="icon" href="../assets/icon.png" type="image/png">
     <link rel="stylesheet" href="./styles.css">
   </head>
@@ -13,7 +14,7 @@
         <div class="brand-lockup">
           <img class="app-logo" src="../assets/icon.png" alt="DG Image Tools">
           <div>
-            <h1>DG Image Tools Admin</h1>
+            <h1>DG Image Tools</h1>
             <p>Đăng nhập để sử dụng công cụ tạo ảnh</p>
           </div>
         </div>
@@ -37,15 +38,15 @@
       <section class="generator-panel">
         <header class="panel-title">
           <div class="brand-lockup">
-            <img class="app-logo" src="../assets/icon.png" alt="DG Image Tools Admin">
+            <img class="app-logo" src="../assets/icon.png" alt="DG Image Tools">
             <div>
-              <h1>9Router Image Tool Admin</h1>
+              <h1>DG Image Tools</h1>
               <div class="identity-row">
                 <p id="userIdentity">Local image endpoint workspace</p>
-                <span id="quotaBadge" class="quota-badge" hidden>Quota --/--</span>
+                <span id="quotaBadge" class="quota-badge" hidden>Quota --</span>
               </div>
             </div>
-            <button id="memberPanelButton" class="crown-button" type="button" title="Quản lý thành viên" aria-label="Quản lý thành viên">
+            <button id="memberPanelButton" class="crown-button" type="button" title="Quản lý thành viên" aria-label="Quản lý thành viên" hidden>
               <svg viewBox="0 0 24 24" aria-hidden="true">
                 <path class="crown-fill" d="M3.7 8.1 8.5 12l3.5-7 3.5 7 4.8-3.9-1.2 10.4H4.9L3.7 8.1Z"></path>
                 <path d="M4.9 18.5h14.2M8.5 12l3.5-7 3.5 7M3.7 8.1 8.5 12M20.3 8.1 15.5 12"></path>
@@ -60,8 +61,22 @@
         </header>
 
         <form id="imageForm" class="config-form">
-          <section class="form-section connection-section private-config" aria-labelledby="connectionTitle">
-            <h2 id="connectionTitle">Kết nối</h2>
+          <section id="connectionSection" class="form-section connection-section private-config" aria-labelledby="connectionTitle">
+            <div class="section-heading">
+              <h2 id="connectionTitle">Kết nối</h2>
+              <button id="toggleConnectionVisibility" class="icon-button privacy-toggle" type="button" title="Ẩn/hiện thông tin kết nối" aria-label="Ẩn/hiện thông tin kết nối">
+                <svg class="eye-open" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z"></path>
+                  <circle cx="12" cy="12" r="3"></circle>
+                </svg>
+                <svg class="eye-closed" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M3 3l18 18"></path>
+                  <path d="M10.6 10.6A3 3 0 0 0 13.4 13.4"></path>
+                  <path d="M7.1 7.1C4.1 8.8 2.5 12 2.5 12s3.5 6 9.5 6c1.4 0 2.7-.3 3.8-.8"></path>
+                  <path d="M17 14.8c2.8-1.7 4.5-4.8 4.5-4.8s-3.5-6-9.5-6c-1.2 0-2.3.2-3.3.6"></path>
+                </svg>
+              </button>
+            </div>
             <div class="section-fields">
               <label>
                 <span>Mô hình</span>
@@ -72,7 +87,7 @@
 
               <label>
                 <span>Điểm cuối</span>
-                <input id="endpoint" name="endpoint" type="url" value="https://ducpt.com/api/9router/user/images/generations" required>
+                <input id="endpoint" name="endpoint" type="url" value="http://localhost:20128/v1/images/generations" required>
               </label>
 
               <label>
@@ -103,11 +118,64 @@
                   <button id="clearPrompt" class="icon-button" type="button" aria-label="Xóa câu lệnh">x</button>
                 </div>
               </label>
+              <input id="refImageUrl" name="refImageUrl" type="hidden">
 
-              <label class="wide-field">
-                <span>Ảnh gốc (URL)</span>
-                <input id="refImageUrl" name="refImageUrl" type="url" placeholder="https://example.com/source.png">
-              </label>
+              <div class="gem-panel wide-field">
+                <span>GEM</span>
+                <div class="gem-workspace">
+                  <div class="gem-controls">
+                    <select id="gemPreset">
+                      <option value="general">GEM CTR tong hop</option>
+                      <option value="finance">GEM tai chinh / crypto</option>
+                      <option value="drama">GEM drama / celebrity</option>
+                      <option value="tutorial">GEM tutorial / how-to</option>
+                      <option value="product">GEM san pham / review</option>
+                      <option value="mystery">GEM bi an / kham pha</option>
+                      <option value="trueCrime">GEM true crime / vu an</option>
+                      <option value="movieAnime">GEM phim / anime</option>
+                      <option value="education">GEM giao duc / kien thuc</option>
+                      <option value="history">GEM lich su</option>
+                      <option value="realEstate">GEM bat dong san</option>
+                      <option value="autoCar">GEM xe co</option>
+                      <option value="sports">GEM the thao</option>
+                      <option value="podcast">GEM podcast / interview</option>
+                      <option value="reaction">GEM reaction</option>
+                      <option value="law">GEM phap luat</option>
+                      <option value="parenting">GEM gia dinh / parenting</option>
+                      <option value="science">GEM khoa hoc</option>
+                      <option value="custom">GEM rieng</option>
+                    </select>
+                    <select id="gemReferenceMode">
+                      <option value="match">Bám mẫu 95-100%</option>
+                      <option value="cloneLayout">Clone bố cục + vị trí chữ</option>
+                      <option value="cloneColorText">Bám màu + font + badge</option>
+                      <option value="cloneSubject">Giữ nhân vật/sản phẩm chính</option>
+                      <option value="nearExact">Remake sát nhất có thể</option>
+                      <option value="styleExtract">Chỉ lấy công thức CTR</option>
+                      <option value="variant">Biến thể cùng style</option>
+                      <option value="contrast">Khác đi nhưng cùng ngách</option>
+                    </select>
+                    <div class="gem-actions">
+                      <button id="analyzeGem" class="secondary-button compact" type="button">Gợi ý prompt</button>
+                      <button id="applyGemPrompt" class="primary-button compact" type="button">Áp dụng</button>
+                    </div>
+                  </div>
+                  <div class="gem-reference-row">
+                    <label class="file-picker secondary-button compact">
+                      <span>Chọn ảnh mẫu</span>
+                      <input id="gemImageFile" type="file" accept="image/*">
+                    </label>
+                    <span id="gemFileName" class="gem-file-name">Chưa chọn ảnh mẫu</span>
+                    <label class="gem-similarity">
+                      <span>Độ giống</span>
+                      <input id="gemSimilarity" type="range" min="70" max="100" value="97">
+                      <output id="gemSimilarityValue">97%</output>
+                    </label>
+                  </div>
+                  <textarea id="gemInstruction" rows="3" placeholder="Instruction GEM rieng"></textarea>
+                  <textarea id="gemPromptOutput" rows="3" placeholder="GEM se goi y cau lenh thumbnail ngan gon tai day"></textarea>
+                </div>
+              </div>
             </div>
           </section>
 
@@ -118,10 +186,9 @@
                 <span>Kích thước</span>
                 <select id="size" name="size">
                   <option value="auto" selected>Tự động</option>
-                  <option value="1920x1080">16:9 - 1920x1080</option>
                   <option value="1536x864">16:9 - 1536x864</option>
                   <option value="1280x720">16:9 - 1280x720</option>
-                  <option value="1080x1920">9:16 - 1080x1920</option>
+                  <option value="864x1536">9:16 - 864x1536</option>
                   <option value="1024x1024">1024x1024</option>
                   <option value="1024x1536">1024x1536</option>
                   <option value="1536x1024">1536x1024</option>
@@ -147,7 +214,7 @@
                   <option value="auto">Tự động</option>
                   <option value="low">Thấp</option>
                   <option value="medium">Trung bình</option>
-                  <option value="high" selected>Cao</option>
+                  <option value="high">Cao</option>
                 </select>
               </label>
 
@@ -163,8 +230,10 @@
               <label>
                 <span>Text ảnh / Cảm xúc</span>
                 <select id="textMode" name="textMode">
+                  <option value="autoText" selected>Tự nhận diện chữ</option>
                   <option value="required">Bắt buộc headline lớn</option>
                   <option value="strict">Rất nghiêm ngặt</option>
+                  <option value="noText">Không chữ trên ảnh</option>
                   <option value="normal">Theo prompt</option>
                   <option value="curiosity">Tò mò / muốn bấm</option>
                   <option value="shock">Sốc / bất ngờ</option>
@@ -179,6 +248,17 @@
                   <option value="tutorialClear">Rõ ràng / hướng dẫn</option>
                   <option value="mysteryReveal">Bí ẩn / hé lộ</option>
                   <option value="cleanWebsite">Website sạch / chuyên nghiệp</option>
+                </select>
+              </label>
+
+              <label>
+                <span>Ngôn ngữ chữ</span>
+                <select id="textLanguage" name="textLanguage">
+                  <option value="auto" selected>Theo câu lệnh</option>
+                  <option value="vi">Tiếng Việt</option>
+                  <option value="en">English</option>
+                  <option value="es">Español</option>
+                  <option value="none">Không dùng chữ</option>
                 </select>
               </label>
 
@@ -214,6 +294,37 @@
                   <option value="low">Thấp</option>
                 </select>
               </label>
+
+              <label>
+                <span>Logo gốc</span>
+                <div class="logo-source-row">
+                  <label class="file-picker secondary-button compact">
+                    <span>Chọn logo</span>
+                    <input id="logoFile" type="file" accept="image/*">
+                  </label>
+                  <span id="logoFileName" class="gem-file-name">Không dùng logo</span>
+                </div>
+              </label>
+
+              <label>
+                <span>Vị trí logo</span>
+                <select id="logoPosition" name="logoPosition">
+                  <option value="topRight" selected>Góc phải trên</option>
+                  <option value="topLeft">Góc trái trên</option>
+                  <option value="bottomRight">Góc phải dưới</option>
+                  <option value="bottomLeft">Góc trái dưới</option>
+                  <option value="none">Không ghép logo</option>
+                </select>
+              </label>
+
+              <label>
+                <span>Cỡ logo</span>
+                <select id="logoSize" name="logoSize">
+                  <option value="8">Nhỏ</option>
+                  <option value="11" selected>Vừa</option>
+                  <option value="15">Lớn</option>
+                </select>
+              </label>
             </div>
           </section>
 
@@ -236,16 +347,16 @@
                 </select>
               </label>
 
-              <label>
+              <label class="output-title-field">
                 <span>Tên bài</span>
                 <input id="articleTitle" name="articleTitle" type="text" placeholder="Ví dụ: Majo Aguilar responde con clase">
               </label>
 
-              <label>
+              <label class="output-path-field">
                 <span>Lưu vào</span>
                 <div class="path-row">
                   <input id="outputDir" name="outputDir" type="text" placeholder="Chọn thư mục lưu ảnh">
-                  <button id="chooseOutputDir" class="secondary-button compact" type="button">Chọn…</button>
+                  <button id="chooseOutputDir" class="secondary-button compact path-button" type="button">Đổi thư mục</button>
                 </div>
               </label>
             </div>
@@ -344,11 +455,11 @@
           <input id="memberEmail" type="email" placeholder="Email thành viên" required>
           <input id="memberPassword" type="password" placeholder="Mật khẩu" required>
           <select id="memberPlan">
-            <option value="monthly" selected>Gói tháng 99k</option>
-            <option value="trial">Dùng thử 7 ngày</option>
-            <option value="vip">VIP 199k</option>
+            <option value="trial">Dùng thử - 0đ</option>
+            <option value="monthly" selected>Gói tháng - 99.000đ</option>
+            <option value="vip">VIP - 199.000đ</option>
           </select>
-          <input id="memberPrice" type="number" min="0" value="99000" placeholder="Giá">
+          <input id="memberPrice" type="text" value="99.000đ" placeholder="Giá" readonly>
           <input id="memberQuota" type="number" min="0" value="100" placeholder="Quota">
           <input id="memberExpiresAt" type="date">
           <input id="memberDeviceLimit" type="number" min="1" value="1" placeholder="Thiết bị">

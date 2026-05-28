@@ -1,0 +1,784 @@
+﻿<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>DG Image Tools - Tạo thumbnail YouTube bằng AI</title>
+  <meta name="description" content="DG Image Tools giúp creator và team media tạo thumbnail YouTube, ảnh quảng cáo, ảnh sản phẩm và ảnh marketing nhanh hơn: nhập ý tưởng, dùng ảnh mẫu, kiểm soát chữ, giữ logo gốc và tạo hàng loạt.">
+  <link rel="canonical" href="https://ducpt.com/image">
+  <link rel="icon" href="/image/assets/dg-image-tools-icon.png" type="image/png">
+  <style>
+    :root {
+      color-scheme: light;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: #111827;
+      background: #f5f7fb;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background:
+        linear-gradient(180deg, rgba(37, 99, 235, .08), transparent 340px),
+        linear-gradient(#e5eaf2 1px, transparent 1px),
+        linear-gradient(90deg, #e5eaf2 1px, transparent 1px),
+        #f5f7fb;
+      background-size: auto, 40px 40px, 40px 40px, auto;
+    }
+
+    a { color: inherit; text-decoration: none; }
+
+    .page {
+      width: min(1180px, calc(100% - 32px));
+      margin: 0 auto;
+      padding: 22px 0 56px;
+    }
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 18px;
+      border: 1px solid #dbe2ea;
+      border-radius: 8px;
+      background: rgba(255, 255, 255, .9);
+      padding: 10px 12px;
+      box-shadow: 0 10px 30px rgba(15, 23, 42, .06);
+      backdrop-filter: blur(10px);
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      min-width: 0;
+      gap: 10px;
+    }
+
+    .brand img {
+      width: 42px;
+      height: 42px;
+      border-radius: 10px;
+      box-shadow: 0 10px 24px rgba(31, 122, 235, .22);
+    }
+
+    .brand strong {
+      display: block;
+      font-size: 16px;
+      line-height: 1.15;
+    }
+
+    .brand span,
+    .topbar nav {
+      color: #64748b;
+      font-size: 13px;
+    }
+
+    .topbar nav {
+      display: flex;
+      gap: 14px;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    .nav-cta {
+      border-radius: 8px;
+      background: #0f172a;
+      color: #ffffff;
+      padding: 9px 12px;
+    }
+
+    .hero {
+      display: grid;
+      grid-template-columns: minmax(0, 1.05fr) minmax(330px, .95fr);
+      gap: 18px;
+      align-items: stretch;
+    }
+
+    .hero-copy,
+    .order-card,
+    .panel {
+      border: 1px solid #dbe2ea;
+      border-radius: 8px;
+      background: #ffffff;
+      box-shadow: 0 18px 50px rgba(15, 23, 42, .08);
+    }
+
+    .hero-copy { padding: 30px; }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 16px;
+      border: 1px solid #bfdbfe;
+      border-radius: 999px;
+      background: #eff6ff;
+      color: #174ea6;
+      padding: 6px 10px;
+      font-size: 12px;
+      font-weight: 800;
+    }
+
+    h1,
+    h2,
+    h3,
+    p { margin: 0; }
+
+    h1 {
+      max-width: 720px;
+      font-size: 42px;
+      line-height: 1.08;
+      letter-spacing: 0;
+    }
+
+    h2 {
+      margin-bottom: 14px;
+      font-size: 22px;
+      line-height: 1.2;
+    }
+
+    h3 {
+      margin-bottom: 8px;
+      font-size: 17px;
+    }
+
+    p {
+      color: #475569;
+      line-height: 1.58;
+    }
+
+    .lead {
+      max-width: 700px;
+      margin-top: 14px;
+      font-size: 17px;
+    }
+
+    .hero-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 22px;
+    }
+
+    .button,
+    button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 42px;
+      border: 0;
+      border-radius: 8px;
+      padding: 0 16px;
+      background: #1f7aeb;
+      color: #ffffff;
+      font: inherit;
+      font-weight: 800;
+      cursor: pointer;
+    }
+
+    .button.secondary {
+      border: 1px solid #dbe2ea;
+      background: #ffffff;
+      color: #0f172a;
+    }
+
+    .button,
+    button,
+    .plan,
+    .nav-cta {
+      transition: transform .16s ease, box-shadow .16s ease, filter .16s ease;
+    }
+
+    .button:hover,
+    button:hover,
+    .plan:hover,
+    .nav-cta:hover {
+      transform: translateY(-1px);
+      filter: brightness(.97);
+      box-shadow: 0 12px 24px rgba(15, 23, 42, .1);
+    }
+
+    .trust-row {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+      margin-top: 18px;
+    }
+
+    .trust-card {
+      border: 1px solid #dbeafe;
+      border-radius: 8px;
+      background: #f8fbff;
+      padding: 11px 12px;
+    }
+
+    .trust-card strong {
+      display: block;
+      color: #174ea6;
+      font-size: 13px;
+    }
+
+    .trust-card span {
+      color: #64748b;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .metrics {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+      margin-top: 24px;
+    }
+
+    .metric {
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      background: #f8fafc;
+      padding: 12px;
+    }
+
+    .metric strong {
+      display: block;
+      color: #0f172a;
+      font-size: 22px;
+    }
+
+    .metric span {
+      color: #64748b;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .order-card { padding: 22px; }
+
+    .order-summary,
+    .conversion-note {
+      border: 1px solid #dbeafe;
+      border-radius: 8px;
+      background: #f8fbff;
+      padding: 12px;
+      color: #174ea6;
+      font-size: 13px;
+      font-weight: 800;
+      line-height: 1.45;
+    }
+
+    .conversion-note {
+      margin-top: 12px;
+      color: #0f172a;
+      background: #fff7ed;
+      border-color: #fed7aa;
+    }
+
+    form {
+      display: grid;
+      gap: 10px;
+    }
+
+    label {
+      display: grid;
+      gap: 5px;
+      color: #475569;
+      font-size: 13px;
+      font-weight: 800;
+    }
+
+    input,
+    textarea,
+    select {
+      width: 100%;
+      min-width: 0;
+      border: 1px solid #dbe2ea;
+      border-radius: 8px;
+      background: #ffffff;
+      color: #0f172a;
+      padding: 11px 12px;
+      font: inherit;
+      outline: none;
+    }
+
+    input:focus,
+    textarea:focus,
+    select:focus {
+      border-color: #2563eb;
+      box-shadow: 0 0 0 3px rgba(37, 99, 235, .12);
+    }
+
+    .status {
+      min-height: 20px;
+      color: #047857;
+      font-size: 13px;
+      font-weight: 800;
+    }
+
+    .sections {
+      display: grid;
+      gap: 16px;
+      margin-top: 16px;
+    }
+
+    .panel { padding: 22px; }
+
+    .feature-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .feature {
+      min-height: 136px;
+      border: 1px solid #dbe2ea;
+      border-radius: 8px;
+      background: #f8fafc;
+      padding: 14px;
+    }
+
+    .feature small {
+      display: inline-flex;
+      margin-bottom: 10px;
+      color: #1f7aeb;
+      font-weight: 900;
+    }
+
+    .agent {
+      display: grid;
+      grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr);
+      gap: 14px;
+    }
+
+    .agent-output {
+      min-height: 210px;
+      border: 1px solid #1e293b;
+      border-radius: 8px;
+      background: #0f1724;
+      color: #d8f7e7;
+      padding: 14px;
+      white-space: pre-wrap;
+      font-family: Consolas, "Liberation Mono", monospace;
+      font-size: 13px;
+      line-height: 1.55;
+      overflow-wrap: anywhere;
+    }
+
+    .agent-controls {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .agent-controls label:first-child {
+      grid-column: 1 / -1;
+    }
+
+    .pricing {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .plan {
+      border: 1px solid #dbe2ea;
+      border-radius: 8px;
+      background: #ffffff;
+      padding: 16px;
+      cursor: pointer;
+    }
+
+    .plan-badge {
+      display: inline-flex;
+      margin-bottom: 9px;
+      border-radius: 999px;
+      background: #ecfdf5;
+      color: #047857;
+      padding: 5px 9px;
+      font-size: 11px;
+      font-weight: 900;
+    }
+
+    .plan.featured .plan-badge {
+      background: #eff6ff;
+      color: #174ea6;
+    }
+
+    .plan.active,
+    .plan.featured {
+      border-color: #1f7aeb;
+      box-shadow: 0 0 0 3px rgba(31, 122, 235, .12);
+    }
+
+    .price {
+      color: #0f172a;
+      font-size: 28px;
+      font-weight: 900;
+    }
+
+    ul {
+      margin: 12px 0 0;
+      padding-left: 18px;
+      color: #475569;
+    }
+
+    li { margin: 6px 0; }
+
+    .payment {
+      display: none;
+      grid-template-columns: 180px minmax(0, 1fr);
+      gap: 16px;
+      align-items: start;
+      margin-top: 14px;
+      border: 1px solid #bfdbfe;
+      border-radius: 8px;
+      background: #f8fbff;
+      padding: 14px;
+    }
+
+    .payment.show { display: grid; }
+
+    .payment img {
+      width: 180px;
+      max-width: 100%;
+      border-radius: 8px;
+      background: #ffffff;
+    }
+
+    .code {
+      display: inline-flex;
+      border: 1px dashed #1f7aeb;
+      border-radius: 8px;
+      background: #ffffff;
+      color: #174ea6;
+      padding: 7px 10px;
+      font-weight: 900;
+    }
+
+    .muted {
+      color: #64748b;
+      font-size: 13px;
+    }
+
+    @media (max-width: 940px) {
+      .hero,
+      .agent,
+      .payment {
+        grid-template-columns: 1fr;
+      }
+
+      .feature-grid,
+      .pricing,
+      .metrics,
+      .trust-row,
+      .agent-controls {
+        grid-template-columns: 1fr;
+      }
+
+      h1 { font-size: 32px; }
+
+      .topbar {
+        align-items: flex-start;
+        flex-direction: column;
+      }
+
+      .topbar nav { flex-wrap: wrap; }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <header class="topbar">
+      <a class="brand" href="/image" aria-label="DG Image Tools">
+        <img src="/image/assets/dg-image-tools-icon.png" alt="DG Image Tools">
+        <span>
+          <strong>DG Image Tools</strong>
+          <span>Công cụ tạo ảnh cho YouTube và marketing</span>
+        </span>
+      </a>
+      <nav>
+        <a href="#features">Tính năng</a>
+        <a href="#workflow">Quy trình</a>
+        <a href="#advisor">Agent tối ưu</a>
+        <a href="#pricing">Bảng giá</a>
+        <a class="nav-cta" href="#order">Đặt mua</a>
+      </nav>
+    </header>
+
+    <section class="hero">
+      <div class="hero-copy">
+        <span class="eyebrow">Dành cho creator, team media và kênh YouTube</span>
+        <h1>Tạo thumbnail YouTube và ảnh marketing nhanh hơn, đúng ý hơn.</h1>
+        <p class="lead">DG Image Tools giúp bạn biến ý tưởng thành ảnh hoàn chỉnh mà không cần gửi dữ liệu riêng. Bạn có thể nhập nhu cầu tạo ảnh, dùng ảnh mẫu để bám phong cách, tạo nhiều ảnh cùng lúc, chọn ảnh có chữ hoặc không chữ, chọn tiếng Việt hoặc tiếng Anh và ghép logo gốc sau khi tạo.</p>
+        <div class="hero-actions">
+          <a class="button" href="#order">Đặt mua ngay</a>
+          <a class="button secondary" href="#advisor">Dùng agent chọn gói</a>
+        </div>
+        <div class="trust-row">
+          <article class="trust-card"><strong>Mua nhanh</strong><span>Tạo mã đơn và nội dung chuyển khoản tự động</span></article>
+          <article class="trust-card"><strong>Dễ kích hoạt</strong><span>Admin cấp tài khoản theo email khách nhập</span></article>
+          <article class="trust-card"><strong>Ít rủi ro</strong><span>Bản user không thấy khu vực quản trị và API key</span></article>
+        </div>
+        <div class="metrics">
+          <div class="metric"><strong>Ý tưởng</strong><span>nhập nội dung muốn tạo</span></div>
+          <div class="metric"><strong>Ảnh mẫu</strong><span>bám phong cách có sẵn</span></div>
+          <div class="metric"><strong>Hàng loạt</strong><span>tạo nhiều ảnh cùng lúc</span></div>
+        </div>
+      </div>
+
+      <form id="orderForm" class="order-card">
+        <h2>Đặt mua và nhận mã chuyển khoản</h2>
+        <div id="orderSummary" class="order-summary">Gói tháng: 99.000đ, 100 ảnh, 1 thiết bị, phù hợp creator làm đều.</div>
+        <label>Gói sử dụng
+          <select id="planSelect" name="planId"></select>
+        </label>
+        <label>Họ tên
+          <input name="customerName" required placeholder="Nguyễn Văn A">
+        </label>
+        <label>Email cấp tài khoản
+          <input name="email" type="email" required placeholder="email@example.com">
+        </label>
+        <label>Số điện thoại/Zalo
+          <input name="phone" required placeholder="09...">
+        </label>
+        <label>Ghi chú nhu cầu
+          <textarea name="note" rows="3" placeholder="Ví dụ: dùng thử, dùng cá nhân, dùng cho team, số ảnh dự kiến mỗi tháng"></textarea>
+        </label>
+        <button type="submit">Tạo đơn và lấy mã chuyển khoản</button>
+        <div class="conversion-note">Sau khi tạo đơn, chuyển khoản đúng nội dung để admin đối soát và kích hoạt tài khoản nhanh hơn.</div>
+        <div id="orderStatus" class="status"></div>
+      </form>
+    </section>
+
+    <div class="sections">
+      <section id="features" class="panel">
+        <h2>App hỗ trợ tạo ảnh như thế nào?</h2>
+        <div class="feature-grid">
+          <article class="feature"><small>01</small><h3>Tạo ảnh từ ý tưởng</h3><p>Bạn chỉ cần nhập nội dung muốn làm, không cần ghi thông tin nhận diện riêng. App sẽ gợi ý câu lệnh tạo ảnh rõ bố cục, rõ nhân vật, rõ cảm xúc và phù hợp màn hình YouTube.</p></article>
+          <article class="feature"><small>02</small><h3>Phân tích ảnh mẫu</h3><p>Khi bạn gửi một ảnh tham khảo, app đọc bố cục, màu sắc, kiểu chữ, cảm xúc và cách sắp xếp để tạo ảnh mới gần phong cách đó nhất có thể.</p></article>
+          <article class="feature"><small>03</small><h3>Tạo nhiều ảnh cùng lúc</h3><p>Dán danh sách nhiều ý tưởng, app tự tách từng mục, tạo lần lượt và lưu vào thư mục riêng. Cách này phù hợp khi cần làm nhiều video hoặc nhiều biến thể để chọn.</p></article>
+          <article class="feature"><small>04</small><h3>Kiểm soát chữ và ngôn ngữ</h3><p>Bạn chọn ảnh có chữ lớn, ít chữ hoặc không chữ. App cũng bám theo ngôn ngữ bạn muốn để hạn chế lỗi ảnh tiếng Việt lại ra tiếng Anh hoặc chữ sai ý.</p></article>
+          <article class="feature"><small>05</small><h3>Giữ logo gốc</h3><p>Logo không để AI vẽ lại. App tạo ảnh trước, sau đó ghép đúng file logo thật vào ảnh để tránh bị méo, sai chữ hoặc sai nhận diện thương hiệu.</p></article>
+          <article class="feature"><small>06</small><h3>Lưu file và báo lỗi dễ hiểu</h3><p>Ảnh sau khi tạo được lưu vào thư mục bạn chọn. Nếu có lỗi, app hiển thị lý do ngắn gọn để biết nên đổi câu lệnh, đổi kích thước hay kiểm tra kết nối.</p></article>
+        </div>
+      </section>
+
+      <section id="workflow" class="panel">
+        <h2>Quy trình mua và sử dụng</h2>
+        <div class="feature-grid">
+          <article class="feature"><small>01</small><h3>Chọn gói phù hợp</h3><p>Khách chọn gói theo số ảnh cần tạo và số thiết bị sử dụng. Không cần khai báo dữ liệu riêng khi đặt mua.</p></article>
+          <article class="feature"><small>02</small><h3>Tạo mã đơn</h3><p>Website tạo mã chuyển khoản riêng cho từng đơn. Khách chuyển khoản đúng nội dung để admin đối soát nhanh và tránh nhầm lẫn.</p></article>
+          <article class="feature"><small>03</small><h3>Kích hoạt tài khoản</h3><p>Sau khi xác nhận thanh toán, admin kích hoạt tài khoản sử dụng app và gửi hướng dẫn đăng nhập cho khách.</p></article>
+          <article class="feature"><small>04</small><h3>Bắt đầu tạo ảnh</h3><p>Khách mở app, nhập nhu cầu tạo ảnh hoặc gửi ảnh mẫu, sau đó app hỗ trợ tạo thumbnail, ảnh quảng cáo, ảnh sản phẩm hoặc ảnh marketing.</p></article>
+          <article class="feature"><small>05</small><h3>Lưu và chọn ảnh</h3><p>Ảnh được lưu vào thư mục khách chọn. Có thể tạo nhiều biến thể để so sánh, chọn ảnh tốt nhất và dùng cho nội dung đang triển khai.</p></article>
+          <article class="feature"><small>06</small><h3>Hỗ trợ khi cần</h3><p>Nếu gặp lỗi tạo ảnh, lỗi chữ hoặc sai phong cách, khách gửi mô tả lỗi để được hướng dẫn chỉnh câu lệnh và thiết lập phù hợp hơn.</p></article>
+        </div>
+      </section>
+
+      <section id="advisor" class="panel agent">
+        <div>
+          <h2>Agent tối ưu chuyển đổi bán hàng</h2>
+          <p>Agent này giúp khách tự chọn gói, hiểu lý do nên mua, giảm phân vân trước khi thanh toán và tự điền ghi chú vào form đặt mua.</p>
+          <form id="advisorForm">
+            <div class="agent-controls">
+              <label>Nhu cầu tạo ảnh
+                <input id="advisorNiche" placeholder="Ví dụ: ảnh có chữ lớn, ảnh không chữ, ảnh sản phẩm, ảnh marketing">
+              </label>
+              <label>Mục tiêu
+                <select id="advisorGoal">
+                  <option value="test">Test app trước khi mua</option>
+                  <option value="creator">Làm kênh cá nhân đều hằng tuần</option>
+                  <option value="team">Team tạo nhiều ảnh mỗi ngày</option>
+                </select>
+              </label>
+              <label>Điểm còn phân vân
+                <select id="advisorObjection">
+                  <option value="price">Muốn chắc đáng tiền</option>
+                  <option value="quality">Sợ ảnh không đúng ý</option>
+                  <option value="speed">Cần tiết kiệm thời gian</option>
+                  <option value="security">Quan tâm bảo mật/key</option>
+                </select>
+              </label>
+            </div>
+            <button type="submit">Gợi ý tối ưu</button>
+          </form>
+        </div>
+        <div id="advisorOutput" class="agent-output">Agent sẽ tạo nội dung tư vấn bán hàng, chọn gói phù hợp, xử lý phân vân và chuẩn bị ghi chú đặt mua tại đây.</div>
+      </section>
+
+      <section id="pricing" class="panel">
+        <h2>Bảng giá</h2>
+        <div id="pricingCards" class="pricing"></div>
+        <div id="paymentBox" class="payment">
+          <img id="qrImage" alt="QR chuyển khoản" hidden>
+          <div>
+            <h2>Thông tin chuyển khoản</h2>
+            <p>Số tiền: <strong id="payAmount"></strong></p>
+            <p>Nội dung chuyển khoản: <span id="payContent" class="code"></span></p>
+            <p id="bankInfo" class="muted"></p>
+            <p class="muted">Sau khi chuyển khoản, admin đối soát theo mã đơn và kích hoạt tài khoản sử dụng cho khách.</p>
+          </div>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <script>
+    const REMOTE_API_BASE = 'https://ducpt-9router-api.onrender.com';
+    const API_BASES = location.protocol === 'file:'
+      ? [REMOTE_API_BASE]
+      : Array.from(new Set([location.origin, REMOTE_API_BASE]));
+    const BANK = { bankId: '', accountNo: '', accountName: '' };
+    const PAYMENT_IMAGES = {
+      monthly: '/image/assets/payment-99000.svg',
+      vip: '/image/assets/payment-199000.svg'
+    };
+    const plans = [
+      { id: 'trial', name: 'Dùng thử', price: 0, imageTotal: 10, deviceLimit: 1, label: '7 ngày', highlight: false, features: ['Tạo thử 10 ảnh', 'Dùng trên 1 thiết bị', 'Phù hợp để kiểm tra app trước khi mua'] },
+      { id: 'monthly', name: 'Gói tháng', price: 99000, imageTotal: 100, deviceLimit: 1, label: '1 tháng', highlight: true, features: ['Tạo 100 ảnh/tháng', 'Dùng trên 1 thiết bị', 'Phù hợp người làm nội dung đều đặn'] },
+      { id: 'vip', name: 'VIP', price: 199000, imageTotal: 300, deviceLimit: 2, label: '1 tháng', highlight: false, features: ['Tạo 300 ảnh/tháng', 'Dùng trên 2 thiết bị', 'Phù hợp team cần tạo nhiều ảnh'] }
+    ];
+    const formatVnd = (value) => Number(value || 0).toLocaleString('vi-VN') + 'đ';
+    const createLocalCode = () => 'DG' + Date.now().toString(36).toUpperCase().slice(-6) + Math.floor(100 + Math.random() * 900);
+    const planSelect = document.querySelector('#planSelect');
+    const pricing = document.querySelector('#pricingCards');
+    const orderForm = document.querySelector('#orderForm');
+    const orderSummary = document.querySelector('#orderSummary');
+    const getPlanSummary = (plan) => plan.name + ': ' + formatVnd(plan.price) + ', ' + plan.imageTotal + ' ảnh, ' + plan.deviceLimit + ' thiết bị, ' + plan.label + '.';
+    const setPlan = (id) => {
+      planSelect.value = id;
+      document.querySelectorAll('.plan').forEach((item) => item.classList.toggle('active', item.dataset.id === id));
+      const plan = plans.find((item) => item.id === id) || plans[1];
+      if (orderSummary) {
+        orderSummary.textContent = getPlanSummary(plan);
+      }
+    };
+
+    plans.forEach((plan) => {
+      const option = document.createElement('option');
+      option.value = plan.id;
+      option.textContent = plan.name + ' - ' + formatVnd(plan.price);
+      planSelect.append(option);
+
+      const card = document.createElement('article');
+      card.className = 'plan' + (plan.highlight ? ' featured active' : '');
+      card.dataset.id = plan.id;
+      const badge = plan.id === 'trial' ? 'Test nhanh' : (plan.id === 'monthly' ? 'Nên chọn' : 'Cho team');
+      card.innerHTML = '<span class="plan-badge">' + badge + '</span><h3>' + plan.name + '</h3><div class="price">' + formatVnd(plan.price) + '</div><p>' + plan.imageTotal + ' ảnh, ' + plan.deviceLimit + ' thiết bị, ' + plan.label + '</p><ul>' + plan.features.map((item) => '<li>' + item + '</li>').join('') + '</ul>';
+      card.addEventListener('click', () => {
+        setPlan(plan.id);
+        orderForm.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      });
+      pricing.append(card);
+    });
+
+    planSelect.value = plans.find((plan) => plan.highlight)?.id || plans[0].id;
+    setPlan(planSelect.value);
+    planSelect.addEventListener('change', () => setPlan(planSelect.value));
+
+    document.querySelector('#advisorForm').addEventListener('submit', (event) => {
+      event.preventDefault();
+      const need = document.querySelector('#advisorNiche').value.trim() || 'tạo thumbnail YouTube';
+      const goal = document.querySelector('#advisorGoal').value;
+      const objection = document.querySelector('#advisorObjection').value;
+      const suggestedPlan = goal === 'team' ? plans.find((plan) => plan.id === 'vip') : (goal === 'test' ? plans.find((plan) => plan.id === 'trial') : plans.find((plan) => plan.id === 'monthly'));
+      setPlan(suggestedPlan.id);
+      const textMode = /cinematic|du lịch|du lich|travel|food|ẩm thực|am thuc|sản phẩm|san pham|product|beauty|fashion|logo|poster|không chữ|khong chu/i.test(need)
+        ? 'ưu tiên ảnh sạch, ít chữ hoặc không chữ nếu bạn muốn ảnh sang và dễ dùng lại'
+        : 'nên có tiêu đề lớn, ngắn, dễ đọc trên điện thoại';
+      const objectionCopy = {
+        price: 'Nếu còn phân vân về giá, nên bắt đầu bằng gói phù hợp nhu cầu thật: gói tháng cho cá nhân hoặc VIP cho team. Chi phí thấp hơn rất nhiều so với thuê thiết kế từng thumbnail.',
+        quality: 'Nếu sợ ảnh không đúng ý, hãy dùng ảnh mẫu và mô tả phong cách mong muốn. App hỗ trợ bám bố cục, màu sắc, kiểu chữ và có thể tạo nhiều biến thể để chọn.',
+        speed: 'Nếu mục tiêu là tiết kiệm thời gian, hãy dùng tạo hàng loạt: dán danh sách ý tưởng, app xử lý lần lượt và lưu file để chọn nhanh.',
+        security: 'Nếu quan tâm bảo mật, bản user không mở quản lý thành viên và không thấy API key. Việc tạo ảnh đi qua backend để admin kiểm soát quota.'
+      };
+      const salesAngle = goal === 'team'
+        ? 'Thông điệp bán hàng nên nhấn vào quota lớn, 2 thiết bị và giảm thời gian vận hành cho team.'
+        : goal === 'test'
+          ? 'Thông điệp bán hàng nên nhấn vào rủi ro thấp: test 0đ trước, thấy hợp rồi nâng gói.'
+          : 'Thông điệp bán hàng nên nhấn vào việc làm nội dung đều hơn, nhanh hơn và có nhiều ảnh để chọn.';
+      const orderNote = 'Nhu cầu chung: ' + need + '. Mục tiêu: ' + (goal === 'team' ? 'team tạo nhiều ảnh mỗi ngày' : goal === 'test' ? 'test app trước khi mua' : 'làm kênh cá nhân đều hằng tuần') + '. Cần tạo ảnh đúng phong cách mong muốn, ' + textMode + ', có thể dùng ảnh mẫu và ghép logo gốc.';
+      document.querySelector('#advisorOutput').textContent = [
+        'Gói phù hợp: ' + suggestedPlan.name + ' - ' + formatVnd(suggestedPlan.price),
+        'Lý do: ' + (goal === 'team' ? 'phù hợp khi team cần tạo nhiều ảnh và dùng trên nhiều thiết bị.' : goal === 'test' ? 'phù hợp để kiểm tra nhanh trước khi mua gói tháng.' : 'phù hợp cho nhu cầu tạo ảnh đều hằng tuần.'),
+        'Góc chốt sale: ' + salesAngle,
+        'Xử lý phân vân: ' + objectionCopy[objection],
+        '',
+        'Ghi chú nên điền khi đặt mua:',
+        orderNote,
+        '',
+        'Câu lệnh tạo ảnh mẫu:',
+        'Tạo thumbnail YouTube 16:9 cho nhu cầu ' + need + ', một chủ thể chính rõ ràng, bố cục sạch, màu sắc nổi bật, cảm xúc mạnh, phù hợp người xem mobile.',
+        '',
+        'Bước tiếp theo: form đặt mua đã chọn sẵn gói này. Chỉ cần nhập email, số điện thoại và tạo mã chuyển khoản.'
+      ].join('\n');
+      orderForm.elements.note.value = orderNote;
+      orderForm.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+
+    document.querySelector('#orderForm').addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const status = document.querySelector('#orderStatus');
+      const formData = new FormData(event.target);
+      const payload = Object.fromEntries(formData.entries());
+      const selectedPlan = plans.find((plan) => plan.id === payload.planId) || plans[1];
+      status.textContent = 'Đang tạo đơn...';
+      let order = null;
+      let bank = null;
+      try {
+        let lastError = null;
+        for (const apiBase of API_BASES) {
+          try {
+            const response = await fetch(apiBase + '/api/sales/orders', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(payload)
+            });
+            const body = await response.json();
+            if (!response.ok) throw new Error(body.message || 'Không tạo được đơn trên server.');
+            order = body.order;
+            bank = body.bank;
+            break;
+          } catch (apiError) {
+            lastError = apiError;
+          }
+        }
+        if (!order || !bank) {
+          throw lastError || new Error('Không tạo được đơn trên server.');
+        }
+      } catch (error) {
+        const code = createLocalCode();
+        order = { code, price: selectedPlan.price, transferContent: code };
+        bank = {
+          ...BANK,
+          paymentRequired: selectedPlan.price > 0,
+          paymentImageUrl: PAYMENT_IMAGES[selectedPlan.id] || '',
+          qrUrl: ''
+        };
+        status.textContent = 'Đã tạo mã đơn tạm thời. Nếu server đang ngủ, admin vẫn đối soát theo nội dung chuyển khoản.';
+      }
+      const paymentBox = document.querySelector('#paymentBox');
+      const paymentRequired = Boolean(bank.paymentRequired ?? (Number(order.price || 0) > 0));
+      if (!paymentRequired) {
+        paymentBox.classList.remove('show');
+        status.textContent = 'Đã lưu thông tin dùng thử ' + order.code + '. Gói 0đ không cần chuyển khoản.';
+        return;
+      }
+      if (!status.textContent || status.textContent === 'Đang tạo đơn...') {
+        status.textContent = 'Đã tạo đơn ' + order.code + '. Vui lòng quét QR và chuyển khoản đúng nội dung.';
+      }
+      paymentBox.classList.add('show');
+      document.querySelector('#payAmount').textContent = formatVnd(order.price);
+      document.querySelector('#payContent').textContent = order.transferContent;
+      document.querySelector('#bankInfo').textContent = bank.accountNo ? ('Ngân hàng: ' + bank.bankId + ' | STK: ' + bank.accountNo + ' | Tên: ' + bank.accountName) : 'Chưa cấu hình thông tin ngân hàng public. Vui lòng liên hệ admin để nhận STK.';
+      const qr = document.querySelector('#qrImage');
+      if (bank.paymentImageUrl || bank.qrUrl) {
+        qr.src = bank.paymentImageUrl || bank.qrUrl;
+        qr.hidden = false;
+      } else {
+        qr.hidden = true;
+      }
+    });
+  </script>
+</body>
+</html>
+

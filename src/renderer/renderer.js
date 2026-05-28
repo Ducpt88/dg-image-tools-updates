@@ -9,6 +9,8 @@ const logoutButton = document.querySelector('#logoutButton');
 const userIdentity = document.querySelector('#userIdentity');
 const quotaBadge = document.querySelector('#quotaBadge');
 const imageForm = document.querySelector('#imageForm');
+const connectionSection = document.querySelector('#connectionSection');
+const toggleConnectionVisibilityButton = document.querySelector('#toggleConnectionVisibility');
 const renderButton = document.querySelector('#renderButton');
 const clearPromptButton = document.querySelector('#clearPrompt');
 const detectPromptButton = document.querySelector('#detectPrompt');
@@ -20,6 +22,18 @@ const previewGrid = document.querySelector('#previewGrid');
 const previewImage = document.querySelector('#previewImage');
 const downloadLink = document.querySelector('#downloadLink');
 const promptInput = document.querySelector('#prompt');
+const gemPresetSelect = document.querySelector('#gemPreset');
+const gemReferenceModeSelect = document.querySelector('#gemReferenceMode');
+const gemImageFileInput = document.querySelector('#gemImageFile');
+const gemFileName = document.querySelector('#gemFileName');
+const logoFileInput = document.querySelector('#logoFile');
+const logoFileName = document.querySelector('#logoFileName');
+const gemSimilarityInput = document.querySelector('#gemSimilarity');
+const gemSimilarityValue = document.querySelector('#gemSimilarityValue');
+const gemInstructionInput = document.querySelector('#gemInstruction');
+const gemPromptOutput = document.querySelector('#gemPromptOutput');
+const analyzeGemButton = document.querySelector('#analyzeGem');
+const applyGemPromptButton = document.querySelector('#applyGemPrompt');
 const commandOutput = document.querySelector('#commandOutput');
 const copyCommandButton = document.querySelector('#copyCommand');
 const promptFile = document.querySelector('#promptFile');
@@ -51,8 +65,101 @@ const memberPriceInput = document.querySelector('#memberPrice');
 const memberQuotaInput = document.querySelector('#memberQuota');
 const memberExpiresAtInput = document.querySelector('#memberExpiresAt');
 const memberDeviceLimitInput = document.querySelector('#memberDeviceLimit');
+let editingMemberId = null;
+const memberPlanPresets = {
+  trial: {
+    label: 'Dùng thử',
+    price: 0,
+    priceLabel: '0đ',
+    quota: 10,
+    days: 7,
+    devices: 1,
+    paymentStatus: 'trial'
+  },
+  monthly: {
+    label: 'Gói tháng',
+    price: 99000,
+    priceLabel: '99.000đ',
+    quota: 100,
+    days: 30,
+    devices: 1,
+    paymentStatus: 'paid'
+  },
+  vip: {
+    label: 'VIP',
+    price: 199000,
+    priceLabel: '199.000đ',
+    quota: 300,
+    days: 30,
+    devices: 2,
+    paymentStatus: 'paid'
+  }
+};
+
+const getMemberPlanPreset = (planId = 'monthly') => memberPlanPresets[planId] || memberPlanPresets.monthly;
+
+const getMemberPlanId = (user = {}) => {
+  const planName = String(user.planName || '').toLowerCase();
+  const monthlyPrice = Number(user.monthlyPrice || 0);
+  if (planName.includes('vip') || monthlyPrice === memberPlanPresets.vip.price) {
+    return 'vip';
+  }
+  if (planName.includes('thử') || planName.includes('thu') || monthlyPrice === memberPlanPresets.trial.price) {
+    return 'trial';
+  }
+  return 'monthly';
+};
 
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+const readFileAsDataUrl = (file) => new Promise((resolve, reject) => {
+  const reader = new FileReader();
+  reader.onload = () => resolve(reader.result);
+  reader.onerror = () => reject(reader.error);
+  reader.readAsDataURL(file);
+});
+
+const loadImageElement = (src) => new Promise((resolve, reject) => {
+  const image = new Image();
+  image.onload = () => resolve(image);
+  image.onerror = () => reject(new Error('Khong doc duoc anh de ghep logo.'));
+  image.src = src;
+});
+
+const composeLogoOnImage = async ({ imageUrl, logoUrl, position, logoSize, outputFormat }) => {
+  if (!imageUrl || !logoUrl || position === 'none') {
+    return imageUrl;
+  }
+
+  const [baseImage, logoImage] = await Promise.all([
+    loadImageElement(imageUrl),
+    loadImageElement(logoUrl)
+  ]);
+  const canvas = document.createElement('canvas');
+  const width = baseImage.naturalWidth || baseImage.width;
+  const height = baseImage.naturalHeight || baseImage.height;
+  canvas.width = width;
+  canvas.height = height;
+
+  const ctx = canvas.getContext('2d');
+  ctx.drawImage(baseImage, 0, 0, width, height);
+
+  const maxLogoWidth = Math.round(width * (Number(logoSize || 11) / 100));
+  const logoRatio = (logoImage.naturalHeight || logoImage.height) / (logoImage.naturalWidth || logoImage.width || 1);
+  const drawWidth = maxLogoWidth;
+  const drawHeight = Math.round(drawWidth * logoRatio);
+  const margin = Math.round(width * 0.025);
+  const x = position === 'topLeft' || position === 'bottomLeft'
+    ? margin
+    : width - drawWidth - margin;
+  const y = position === 'bottomLeft' || position === 'bottomRight'
+    ? height - drawHeight - margin
+    : margin;
+
+  ctx.drawImage(logoImage, x, y, drawWidth, drawHeight);
+  const mime = outputFormat === 'jpg' || outputFormat === 'jpeg' ? 'image/jpeg' : 'image/png';
+  return canvas.toDataURL(mime, 0.95);
+};
 let activeRequestId = null;
 let isRendering = false;
 let stopBatchRequested = false;
@@ -61,6 +168,7 @@ let isBatchRunning = false;
 let isArticleTitleManual = false;
 let authSession = null;
 let appConfig = null;
+let logoDataUrl = '';
 
 memberPanelButton.hidden = true;
 
@@ -85,7 +193,14 @@ const setAuthenticated = (session) => {
   authSession = session;
   document.body.classList.toggle('auth-locked', !session);
   userIdentity.textContent = session?.user?.email || 'Local image endpoint workspace';
-  renderQuotaBadge(session?.user);
+  logoutButton.hidden = !session?.token;
+  if (session?.token) {
+    quotaBadge.hidden = false;
+    quotaBadge.textContent = 'Quota --';
+    refreshRouterQuota().catch(() => renderQuotaBadge(session?.user));
+  } else {
+    renderQuotaBadge(session?.user);
+  }
 };
 
 const renderQuotaBadge = (user) => {
@@ -97,13 +212,44 @@ const renderQuotaBadge = (user) => {
 
   if (!user || !quotaTotal) {
     quotaBadge.hidden = true;
-    quotaBadge.textContent = 'Quota --/--';
+    quotaBadge.textContent = 'Quota --';
     return;
   }
 
   quotaBadge.hidden = false;
-  quotaBadge.textContent = `Quota ${quotaRemaining}/${quotaTotal}`;
+  quotaBadge.textContent = `Quota ${quotaTotal}`;
   quotaBadge.classList.toggle('quota-low', quotaRemaining <= Math.max(3, Math.ceil(quotaTotal * 0.1)));
+};
+
+const renderRouterQuotaBadge = (quota) => {
+  const quotaTotal = Number(quota?.quotaTotal);
+  const quotaUsed = Number(quota?.quotaUsed ?? 0);
+  const quotaRemaining = Number.isFinite(Number(quota?.quotaRemaining))
+    ? Number(quota.quotaRemaining)
+    : (Number.isFinite(quotaTotal) ? Math.max(0, quotaTotal - quotaUsed) : null);
+
+  quotaBadge.hidden = false;
+  if (Number.isFinite(quotaTotal) && quotaTotal > 0) {
+    quotaBadge.textContent = `Quota ${quotaTotal}${quota?.quotaUnit === 'accounts' ? ' TK' : ''}`;
+    quotaBadge.classList.toggle('quota-low', quotaRemaining <= Math.max(3, Math.ceil(quotaTotal * 0.1)));
+    return;
+  }
+
+  quotaBadge.textContent = 'Quota --';
+  quotaBadge.classList.remove('quota-low');
+};
+
+const refreshRouterQuota = async () => {
+  if (!window.toolApi.getRouterQuota) {
+    return null;
+  }
+
+  const quota = await window.toolApi.getRouterQuota(authSession.token);
+  if (quota) {
+    renderRouterQuotaBadge(quota);
+  }
+
+  return quota;
 };
 
 const refreshCurrentUser = async () => {
@@ -113,12 +259,58 @@ const refreshCurrentUser = async () => {
 
   const user = await window.toolApi.getCurrentUser(authSession.token);
   authSession = { ...authSession, user };
-  renderQuotaBadge(user);
+  await refreshRouterQuota().catch(() => renderQuotaBadge(user));
   userIdentity.textContent = user?.email || authSession.user?.email || 'Local image endpoint workspace';
   return user;
 };
 
+const restoreAuthSession = async () => {
+  if (appConfig?.app?.flavor === 'admin') {
+    setAuthenticated({
+      token: '',
+      user: {
+        id: 'local-admin',
+        email: 'Local Admin',
+        role: 'admin',
+        status: 'active',
+        quotaTotal: 999999,
+        quotaUsed: 0
+      }
+    });
+    loginStatus.textContent = '';
+    memberPanelButton.hidden = false;
+    return;
+  }
+
+  const token = localStorage.getItem('authToken');
+  const email = localStorage.getItem('authUserEmail');
+
+  if (!token) {
+    setAuthenticated(null);
+    return;
+  }
+
+  setAuthenticated({
+    token,
+    user: {
+      email: email || 'Dang tai tai khoan...'
+    }
+  });
+
+  try {
+    await refreshCurrentUser();
+  } catch (error) {
+    clearAuthSession();
+    setLoginStatus(error.message || 'Phien dang nhap khong con hop le.', 'error');
+  }
+};
+
 const clearAuthSession = () => {
+  if (appConfig?.app?.flavor === 'admin') {
+    restoreAuthSession();
+    return;
+  }
+
   localStorage.removeItem('authToken');
   localStorage.removeItem('authUserEmail');
   setAuthenticated(null);
@@ -133,6 +325,13 @@ const clearPreviewGrid = () => {
       <span>Chưa có ảnh</span>
     </div>
   `;
+};
+
+const getPreviewCaption = (title, index) => {
+  const fallback = `Ảnh ${index}`;
+  const cleanTitle = normalizeTitleText(title);
+  const shortTitle = createTitleFromPrompt(cleanTitle || fallback);
+  return `${String(index).padStart(2, '0')} - ${shortTitle || fallback}`;
 };
 
 const addPreviewTile = ({ imageUrl, title, index }) => {
@@ -151,7 +350,7 @@ const addPreviewTile = ({ imageUrl, title, index }) => {
   const caption = document.createElement('div');
   caption.className = 'preview-caption';
   caption.title = title || `Ảnh ${index}`;
-  caption.textContent = `${String(index).padStart(2, '0')} - ${title || 'Ảnh đã tạo'}`;
+  caption.textContent = getPreviewCaption(title, index);
 
   thumb.append(image);
   tile.append(thumb, caption);
@@ -174,7 +373,7 @@ const addPreviewErrorTile = ({ title, index, error }) => {
   const caption = document.createElement('div');
   caption.className = 'preview-caption';
   caption.title = error || title || `Ảnh ${index}`;
-  caption.textContent = `${String(index).padStart(2, '0')} - ${title || 'Không tạo được'}`;
+  caption.textContent = getPreviewCaption(title || 'Không tạo được', index);
 
   thumb.append(message);
   tile.append(thumb, caption);
@@ -205,6 +404,346 @@ const createTitleFromPrompt = (prompt) => {
     .slice(0, 90);
 };
 
+const gemPresets = {
+  general: {
+    label: 'GEM CTR tong hop',
+    instruction: 'Act as a YouTube thumbnail strategist. Find the clearest click trigger, one main subject, one emotional contrast, and one short headline. Build a clean 16:9 thumbnail prompt with high readability, strong focal point, and no clutter.',
+    headlineTone: 'curiosity, benefit, high CTR'
+  },
+  finance: {
+    label: 'GEM tai chinh / crypto',
+    instruction: 'Act as a finance and crypto thumbnail expert. Emphasize money movement, risk, profit, chart direction, trust, and urgency without scam claims. Use clear charts, green/red contrast, coin/cash badges, and a serious expert look.',
+    headlineTone: 'profit, risk, warning, opportunity'
+  },
+  drama: {
+    label: 'GEM drama / celebrity',
+    instruction: 'Act as an entertainment drama thumbnail expert. Emphasize facial emotion, conflict, reveal, gossip cues, red/yellow contrast, arrows, exclusive badge, and a clean headline that creates curiosity without defamatory certainty.',
+    headlineTone: 'shock, reveal, tension'
+  },
+  tutorial: {
+    label: 'GEM tutorial / how-to',
+    instruction: 'Act as a tutorial thumbnail expert. Make the result obvious in one second. Use step badge, arrows, before/after cue, clean UI/object close-up, and a short headline focused on the outcome.',
+    headlineTone: 'clear result, simple method'
+  },
+  product: {
+    label: 'GEM san pham / review',
+    instruction: 'Act as a product and review thumbnail expert. Show the product large, comparison or rating cue, clean proof badge, price/value signal, and premium commercial lighting. Make the viewer understand the decision angle immediately.',
+    headlineTone: 'best/worst, worth it, proof'
+  },
+  mystery: {
+    label: 'GEM bi an / kham pha',
+    instruction: 'Act as a mystery and discovery thumbnail expert. Use hidden/revealed object, question cue, suspense lighting, magnifier/arrow, and a headline that creates curiosity while keeping the subject readable.',
+    headlineTone: 'secret, unknown, reveal'
+  },
+  trueCrime: {
+    label: 'GEM true crime / vu an',
+    instruction: 'Act as a true-crime thumbnail expert. Use suspense, evidence board cues, silhouette, red circle, document/photo clues, dark contrast, and a careful headline that suggests mystery without graphic violence or defamatory certainty.',
+    headlineTone: 'case, clue, mystery'
+  },
+  movieAnime: {
+    label: 'GEM phim / anime',
+    instruction: 'Act as a movie/anime thumbnail expert. Use cinematic character framing, dramatic lighting, versus/reveal composition, episode/movie energy, and a bold headline that signals review, theory, or ranking.',
+    headlineTone: 'theory, ranking, reveal'
+  },
+  education: {
+    label: 'GEM giao duc / kien thuc',
+    instruction: 'Act as an education thumbnail expert. Make the concept instantly understandable with one visual metaphor, clean labels, diagram cue, large subject, and a benefit-focused headline.',
+    headlineTone: 'learn fast, simple, useful'
+  },
+  history: {
+    label: 'GEM lich su',
+    instruction: 'Act as a history thumbnail expert. Use archival mood, map/timeline cues, old photo texture, before-after era contrast, and a headline that creates historical curiosity.',
+    headlineTone: 'forgotten, turning point, truth'
+  },
+  realEstate: {
+    label: 'GEM bat dong san',
+    instruction: 'Act as a real-estate thumbnail expert. Show property/land/house clearly, price or location cue, arrow, document/contract badge, and a headline about opportunity, risk, or market movement.',
+    headlineTone: 'deal, warning, market'
+  },
+  autoCar: {
+    label: 'GEM xe co',
+    instruction: 'Act as an automotive thumbnail expert. Show the vehicle large, aggressive angle, speed/detail cue, comparison badge, price/review signal, and clean high-contrast typography.',
+    headlineTone: 'review, speed, worth it'
+  },
+  sports: {
+    label: 'GEM the thao',
+    instruction: 'Act as a sports thumbnail expert. Use action freeze frame, athlete emotion, scoreboard/ranking cue, versus layout, trophy/fire effects, and a strong result or controversy headline.',
+    headlineTone: 'win, record, clash'
+  },
+  podcast: {
+    label: 'GEM podcast / interview',
+    instruction: 'Act as a podcast thumbnail expert. Use expressive guest face, clean studio/interview framing, quote-style headline, name badge, and professional lighting with strong face hierarchy.',
+    headlineTone: 'quote, confession, insight'
+  },
+  reaction: {
+    label: 'GEM reaction',
+    instruction: 'Act as a reaction thumbnail expert. Use big emotional face, object/video frame being reacted to, arrow/circle, shock or laugh cue, and very short readable headline.',
+    headlineTone: 'reaction, shock, funny'
+  },
+  law: {
+    label: 'GEM phap luat',
+    instruction: 'Act as a legal/policy thumbnail expert. Use court/document/gavel cues, red warning badge, serious expert expression, clean evidence layout, and a headline about risk or rights.',
+    headlineTone: 'warning, rights, legal risk'
+  },
+  parenting: {
+    label: 'GEM gia dinh / parenting',
+    instruction: 'Act as a parenting/family thumbnail expert. Use parent-child emotion, problem/solution contrast, warm trustworthy colors, checklist or warning cue, and a clear outcome headline.',
+    headlineTone: 'care, mistake, solution'
+  },
+  science: {
+    label: 'GEM khoa hoc',
+    instruction: 'Act as a science thumbnail expert. Use experiment/lab/space/diagram cues, clear visual question, glow or magnifier detail, and a curiosity headline that makes the concept visual.',
+    headlineTone: 'why, discovery, experiment'
+  },
+  custom: {
+    label: 'GEM rieng',
+    instruction: '',
+    headlineTone: 'custom'
+  }
+};
+
+const getGemInstruction = () => {
+  const preset = gemPresets[gemPresetSelect?.value] || gemPresets.general;
+  return (gemInstructionInput.value.trim() || preset.instruction).trim();
+};
+
+const getGemReferenceInstruction = () => {
+  const similarity = Number(gemSimilarityInput?.value || 97);
+  const hasReference = Boolean(document.querySelector('#refImageUrl')?.value.trim());
+  const mode = gemReferenceModeSelect?.value || 'match';
+
+  if (!hasReference) {
+    return '';
+  }
+
+  if (mode === 'nearExact') {
+    return `Analyze attached thumbnail and remake it as close as possible ${similarity}-100%: same composition, camera angle, subject size, face expression, lighting direction, color palette, typography scale, text placement, badge/arrow shapes, empty space, contrast, and depth; change only the topic-specific object/headline when required`;
+  }
+
+  if (mode === 'cloneLayout') {
+    return `Analyze attached thumbnail and clone its layout ${similarity}-100%: same subject position, text blocks, negative space, object hierarchy, crop, arrows, badges, and foreground/background separation; adapt content to the new topic`;
+  }
+
+  if (mode === 'cloneColorText') {
+    return `Analyze attached thumbnail and keep its color and text system ${similarity}-100%: same palette, font weight, headline size, stroke/shadow, badge style, glow, contrast, and readable mobile text; change only words and topic objects`;
+  }
+
+  if (mode === 'cloneSubject') {
+    return `Analyze attached thumbnail and preserve the main subject/product treatment ${similarity}-100%: same character pose, face emotion, product angle, lighting, outline, scale, and focus; rebuild background/headline for this topic`;
+  }
+
+  if (mode === 'styleExtract') {
+    return `Analyze attached thumbnail, extract its CTR formula only: hook type, focal hierarchy, emotional contrast, color logic, text weight, and click trigger; create a fresh image for this topic without copying exact layout`;
+  }
+
+  if (mode === 'variant') {
+    return `Analyze attached thumbnail, keep its visual system about ${similarity}% similar, but change subject/details for this topic`;
+  }
+
+  if (mode === 'contrast') {
+    return `Analyze attached thumbnail, keep only its CTR logic, create a different layout for this topic`;
+  }
+
+  return `Analyze attached thumbnail and recreate its formula ${similarity}-100%: same layout, text scale, color palette, subject framing, badge/arrow style, contrast; only change topic/headline`;
+};
+
+const extractGemHeadline = (text, preset) => {
+  const quoted = extractQuotedTexts(text)[0];
+  if (quoted) {
+    return quoted.slice(0, 38);
+  }
+
+  const clean = normalizeTitleText(text)
+    .replace(/\b(tạo|hay|hãy|thumbnail|youtube|video|kịch bản|noi dung|nội dung|prompt)\b/gi, ' ')
+    .replace(/[,:;.!?()[\]{}"'“”‘’]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  const words = clean.split(' ').filter(Boolean);
+
+  if (preset === 'finance') {
+    return 'CO HOI HAY RUI RO?';
+  }
+  if (preset === 'drama') {
+    return 'SU THAT BAT NGO';
+  }
+  if (preset === 'tutorial') {
+    return 'LAM DUOC NGAY';
+  }
+  if (preset === 'product') {
+    return 'DANG MUA KHONG?';
+  }
+  if (preset === 'mystery') {
+    return 'BI MAT LA GI?';
+  }
+  if (preset === 'trueCrime') {
+    return 'MANH MOI MOI?';
+  }
+  if (preset === 'movieAnime') {
+    return 'DINH CAO HAY TE?';
+  }
+  if (preset === 'education') {
+    return 'HIEU NGAY';
+  }
+  if (preset === 'history') {
+    return 'SU THAT BI QUEN';
+  }
+  if (preset === 'realEstate') {
+    return 'CO HOI HAY BAY?';
+  }
+  if (preset === 'autoCar') {
+    return 'DANG MUA KHONG?';
+  }
+  if (preset === 'sports') {
+    return 'TRAN DAU DINH CAO';
+  }
+  if (preset === 'podcast') {
+    return 'LAN DAU TIET LO';
+  }
+  if (preset === 'reaction') {
+    return 'KHONG THE TIN';
+  }
+  if (preset === 'law') {
+    return 'COI CHUNG VI PHAM';
+  }
+  if (preset === 'parenting') {
+    return 'DUNG MAC LOI NAY';
+  }
+  if (preset === 'science') {
+    return 'TAI SAO LAI THE?';
+  }
+
+  return words.slice(0, 5).join(' ').toUpperCase() || 'DIEU CAN BIET';
+};
+
+const inferPromptLanguage = (text) => {
+  const normalized = String(text || '').toLowerCase();
+  if (/[àáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹđ]/i.test(normalized)
+    || /\b(tôi|bạn|cách|kiếm|tiền|đầu tư|thành công|sự thật|không|người|chủ đề)\b/i.test(normalized)) {
+    return 'vi';
+  }
+  if (/\b(mexico|español|dinero|noticia|secreto|alerta|urgente|ganar|inversion)\b/i.test(normalized)) {
+    return 'es';
+  }
+  if (/[a-z]/i.test(normalized)) {
+    return 'en';
+  }
+  return 'auto';
+};
+
+const getGemTextPolicy = (text, presetKey = 'general') => {
+  const haystack = `${text || ''} ${presetKey || ''}`.toLowerCase();
+  const has = (pattern) => pattern.test(haystack);
+
+  if (has(/không chữ|khong chu|no text|textless|without text|không có text|khong co text|clean image|ảnh nền|anh nen|background|wallpaper|b-roll|cinematic shot|film still|product photo|packshot|lookbook|portrait only|ảnh chân dung|anh chan dung/)) {
+    return {
+      textMode: 'noText',
+      textLanguage: 'none',
+      reason: 'GEM nhận diện dạng visual/ảnh sạch nên ưu tiên không chữ.'
+    };
+  }
+
+  if (has(/finance|crypto|bitcoin|stock|chứng khoán|chung khoan|đầu tư|dau tu|money|tutorial|how to|hướng dẫn|huong dan|education|giáo dục|giao duc|true crime|vụ án|vu an|law|pháp luật|phap luat|real estate|bất động sản|bat dong san|news|tin nóng|tin nong|drama|reaction|podcast|sports|thể thao|the thao|review|before after|trước sau|truoc sau|success|thành công|thanh cong/)) {
+    return {
+      textMode: 'required',
+      textLanguage: inferPromptLanguage(text),
+      reason: 'GEM nhận diện ngách YouTube cần headline lớn để tăng CTR.'
+    };
+  }
+
+  if (has(/travel|du lịch|du lich|food|ẩm thực|am thuc|cinematic|movie|film|nature|landscape|resort|hotel|fashion|beauty|product|sản phẩm|san pham/)) {
+    return {
+      textMode: 'normal',
+      textLanguage: inferPromptLanguage(text),
+      reason: 'GEM nhận diện ngách có thể dùng ít chữ hoặc theo prompt.'
+    };
+  }
+
+  return {
+    textMode: 'normal',
+    textLanguage: inferPromptLanguage(text),
+    reason: 'GEM dùng chế độ chữ theo prompt.'
+  };
+};
+
+const applyGemTextPolicy = (text, presetKey) => {
+  const policy = getGemTextPolicy(text, presetKey);
+  const textModeSelect = document.querySelector('#textMode');
+  const textLanguageSelect = document.querySelector('#textLanguage');
+
+  if (textModeSelect && (textModeSelect.value === 'autoText' || textModeSelect.value === 'normal')) {
+    textModeSelect.value = policy.textMode;
+  }
+
+  if (textLanguageSelect && textLanguageSelect.value === 'auto' && policy.textLanguage !== 'auto') {
+    textLanguageSelect.value = policy.textLanguage;
+  }
+
+  return policy;
+};
+
+const buildGemPrompt = () => {
+  const script = promptInput.value.trim();
+  const presetKey = gemPresetSelect.value || 'general';
+  const preset = gemPresets[presetKey] || gemPresets.general;
+  const instruction = getGemInstruction();
+  const referenceInstruction = getGemReferenceInstruction();
+  const headline = extractGemHeadline(script, presetKey);
+  const detected = getDetectedPromptSettings(`${script} ${preset.label}`);
+  const policy = getGemTextPolicy(`${script} ${preset.label}`, presetKey);
+  const selectedTextLanguage = document.querySelector('#textLanguage')?.value || 'auto';
+  const selectedTextMode = document.querySelector('#textMode')?.value || 'autoText';
+  const textLanguage = selectedTextLanguage === 'auto' ? policy.textLanguage : selectedTextLanguage;
+  const textMode = selectedTextMode === 'autoText' ? policy.textMode : selectedTextMode;
+  const wantsNoText = textLanguage === 'none' || textMode === 'noText';
+  const languageLine = {
+    vi: 'Toàn bộ chữ trên ảnh phải là tiếng Việt.',
+    en: 'All visible text must be English.',
+    es: 'Todo el texto visible debe estar en español.',
+    auto: 'Chữ trên ảnh dùng cùng ngôn ngữ với câu lệnh.'
+  }[textLanguage] || '';
+
+  return [
+    `Tạo thumbnail YouTube 16:9 cho: ${script || 'ý tưởng video mới từ ảnh mẫu'}.`,
+    referenceInstruction,
+    `Phong cách ${preset.label}: ${instruction}`,
+    logoDataUrl ? 'Không vẽ lại logo trong ảnh. Chừa vùng sạch cho logo gốc, app sẽ tự ghép logo file thật sau khi tạo.' : '',
+    policy.reason,
+    wantsNoText ? 'Không đặt chữ, số, logo, watermark hoặc caption đọc được trên ảnh.' : `Text lớn trên ảnh: "${headline}".`,
+    wantsNoText ? '' : languageLine,
+    wantsNoText
+      ? 'Một chủ thể chính, cảm xúc rõ, tương phản mạnh, bố cục CTR sạch, dùng ánh sáng/màu/mũi tên hoặc hình khối để tạo điểm nhấn, không chữ.'
+      : 'Một chủ thể chính, chữ to dễ đọc trên mobile, tương phản mạnh, bố cục CTR sạch, có mũi tên/badge nếu cần, không chữ nhỏ, không rối.'
+  ].filter(Boolean).join(' ');
+};
+
+const syncGemInstruction = () => {
+  const preset = gemPresets[gemPresetSelect?.value] || gemPresets.general;
+  gemInstructionInput.closest('.gem-workspace')?.classList.toggle('custom-gem', gemPresetSelect?.value === 'custom');
+  if (gemPresetSelect?.value !== 'custom') {
+    gemInstructionInput.value = preset.instruction;
+  }
+};
+
+const analyzeGemPrompt = ({ applyToPrompt = false } = {}) => {
+  syncGemInstruction();
+  const policy = applyGemTextPolicy(promptInput.value, gemPresetSelect?.value || 'general');
+  const prompt = buildGemPrompt();
+  gemPromptOutput.value = prompt;
+
+  if (applyToPrompt) {
+    promptInput.value = prompt;
+    isArticleTitleManual = false;
+    syncArticleTitleFromPrompt();
+    applyDetectedPromptSettings();
+    updateCommand();
+  }
+
+  statusText.textContent = `GEM da tao prompt thumbnail | ${policy.reason}`;
+  outputLog.textContent = `GEM gợi ý câu lệnh:\n${prompt}`;
+  updateCommand();
+  return prompt;
+};
+
 const syncArticleTitleFromPrompt = () => {
   if (isArticleTitleManual) {
     return;
@@ -218,14 +757,81 @@ const setStatus = (message) => {
   outputLog.textContent = message;
 };
 
+const summarizeError = (error) => {
+  const raw = String(error?.message || error || '').trim();
+  if (!raw) {
+    return 'Loi khong xac dinh';
+  }
+
+  try {
+    const parsed = JSON.parse(raw);
+    const message = parsed.message || parsed.error?.message || parsed.error || raw;
+    return String(message).replace(/\s+/g, ' ').slice(0, 240);
+  } catch {
+    return raw
+      .replace(/<[^>]*>/g, ' ')
+      .replace(/\s+/g, ' ')
+      .slice(0, 240);
+  }
+};
+
+const compactPrompt = (prompt, maxLength = 160) => {
+  const clean = String(prompt || '').replace(/\s+/g, ' ').trim();
+  return clean.length > maxLength ? `${clean.slice(0, maxLength)}...` : clean;
+};
+
+const renderBatchLog = (results, total, currentMessage = '') => {
+  const lines = [];
+  if (currentMessage) {
+    lines.push(currentMessage, '');
+  }
+
+  lines.push(`Lich su tao anh: ${results.filter((item) => item.ok).length} thanh cong, ${results.filter((item) => !item.ok).length} loi / ${total}`, '');
+  results.forEach((item) => {
+    lines.push(`${String(item.index).padStart(2, '0')}. ${item.ok ? 'OK' : 'LOI'} - ${item.fileTitle || item.title || 'Khong co tieu de'}`);
+    lines.push(`Prompt: ${compactPrompt(item.prompt)}`);
+    lines.push(item.ok ? `File: ${item.savedPath || 'Da luu'}` : `Loi: ${summarizeError(item.error)}`);
+    lines.push('');
+  });
+
+  outputLog.textContent = lines.join('\n').trim();
+  outputLog.scrollTop = outputLog.scrollHeight;
+};
+
+const shouldRetryGenerationError = (error) => {
+  const message = String(error?.message || error || '');
+  return !/(HTTP\s*(400|401|403|404|405)|endpoint khong cho phep POST|Not Allowed|Unauthorized|Forbidden|Thiếu token|token|quota|hết hạn|vượt giới hạn thiết bị|không tồn tại)/i.test(message);
+};
+
 const setVersion = async () => {
   const [version, config] = await Promise.all([
     window.toolApi.getVersion(),
     window.toolApi.getConfig()
   ]);
   appConfig = config;
+  document.body.classList.toggle('user-build', config?.app?.flavor === 'user');
+  document.body.classList.toggle('admin-build', config?.app?.flavor === 'admin');
   appVersionEl.textContent = `v${version}`;
   memberPanelButton.hidden = config?.app?.flavor !== 'admin';
+  if (config?.app?.flavor === 'user') {
+    document.title = 'DG Image Tools';
+    document.querySelectorAll('.brand-lockup h1').forEach((title) => {
+      title.textContent = 'DG Image Tools';
+    });
+    connectionSection.hidden = true;
+    document.querySelector('#endpoint').required = false;
+    document.querySelector('#endpoint').disabled = true;
+    apiKeyInput.disabled = true;
+    apiKeyInput.value = '';
+    document.querySelector('#endpoint').value = '';
+    document.querySelector('.command-panel')?.classList.add('hidden');
+  } else {
+    connectionSection.hidden = false;
+    document.querySelector('#endpoint').disabled = false;
+    document.querySelector('#endpoint').required = true;
+    apiKeyInput.disabled = false;
+    document.querySelector('.command-panel')?.classList.remove('hidden');
+  }
 };
 
 const getFormConfig = () => {
@@ -234,28 +840,38 @@ const getFormConfig = () => {
   const promptStyle = formData.get('promptStyle');
   const detectedSettings = getDetectedPromptSettings(prompt);
   const effectivePromptStyle = promptStyle === 'autoDetect' ? detectedSettings.promptStyle : promptStyle;
-  const effectiveTextMode = promptStyle === 'autoDetect' ? detectedSettings.textMode : formData.get('textMode');
+  const rawTextMode = formData.get('textMode') || 'autoText';
+  const autoTextPolicy = getGemTextPolicy(prompt, gemPresetSelect?.value || 'general');
+  const effectiveTextMode = rawTextMode === 'autoText' ? autoTextPolicy.textMode : rawTextMode;
   const effectiveIconStyle = promptStyle === 'autoDetect' ? detectedSettings.iconStyle : formData.get('iconStyle');
   const effectiveSize = promptStyle === 'autoDetect' ? detectedSettings.size : formData.get('size');
+  const rawTextLanguage = formData.get('textLanguage') || 'auto';
+  const textLanguage = rawTextLanguage === 'auto' ? autoTextPolicy.textLanguage : rawTextLanguage;
 
   return {
     model: formData.get('model'),
-    endpoint: formData.get('endpoint'),
-    apiKey: formData.get('apiKey'),
+    endpoint: appConfig?.app?.flavor === 'user'
+      ? ''
+      : normalizeEndpointForRequest(formData.get('endpoint')),
+    apiKey: appConfig?.app?.flavor === 'user' ? '' : formData.get('apiKey'),
     authToken: authSession?.token || '',
     deviceId: getDeviceId(),
     prompt: enhancePrompt(prompt, effectivePromptStyle),
     fileTitle: prompt,
     refImageUrl: formData.get('refImageUrl'),
-    size: effectiveSize,
+    size: normalizeImageSizeForRequest(effectiveSize),
     quality: formData.get('quality'),
     background: formData.get('background'),
-    textMode: effectiveTextMode,
+    textMode: textLanguage === 'none' ? 'noText' : effectiveTextMode,
+    textLanguage,
     iconStyle: effectiveIconStyle,
     imageDetail: formData.get('imageDetail'),
     outputFormat: formData.get('outputFormat'),
     outputDir: formData.get('outputDir'),
     articleTitle: formData.get('articleTitle'),
+    logoDataUrl,
+    logoPosition: formData.get('logoPosition') || 'topRight',
+    logoSize: formData.get('logoSize') || '11',
     promptStyle: promptStyle === 'autoDetect' ? 'autoDetect' : effectivePromptStyle,
     effectivePromptStyle
   };
@@ -281,21 +897,33 @@ const getDetectedPromptSettings = (prompt) => {
   const isMystery = has(/mystery|bí ẩn|khám phá|secret|sự thật|ẩn giấu|unknown/);
   const isSuccess = has(/success|thành công|motivation|động lực|rich|giàu|business|doanh nhân/);
 
+  const isTrueCrime = has(/true crime|crime|vu an|vụ án|an mang|án mạng|mat tich|mất tích|dieu tra|điều tra|bang chung|bằng chứng|toi pham|tội phạm/);
+  const isMovieAnime = has(/movie|phim|anime|manga|netflix|spoiler|trailer|episode|tap phim|tập phim|nhan vat|nhân vật/);
+  const isEducation = has(/education|giao duc|giáo dục|kien thuc|kiến thức|hoc|học|bai hoc|bài học|giai thich|giải thích|facts/);
+  const isHistory = has(/history|lich su|lịch sử|chien tranh|chiến tranh|de che|đế chế|trieu dai|triều đại|co dai|cổ đại/);
+  const isRealEstate = has(/real estate|bat dong san|bất động sản|nha dat|nhà đất|chung cu|chung cư|dat nen|đất nền/);
+  const isAutoCar = has(/car|auto|xe hoi|xe hơi|oto|ô tô|motor|moto|review xe|sieu xe|siêu xe|tesla/);
+  const isSports = has(/sports|the thao|thể thao|bong da|bóng đá|football|soccer|nba|tran dau|trận đấu|cau thu|cầu thủ/);
+  const isPodcast = has(/podcast|interview|phong van|phỏng vấn|talkshow|khach moi|khách mời|tro chuyen|trò chuyện/);
+  const isReaction = has(/reaction|react|phan ung|phản ứng|bat ngo|bất ngờ|khong tin|không tin|cuoi|cười/);
+  const isLaw = has(/law|legal|phap luat|pháp luật|luat|luật|kien|kiện|toa an|tòa án|hop dong|hợp đồng/);
+  const isParenting = has(/parenting|gia dinh|gia đình|cha me|cha mẹ|con cai|con cái|nuoi day|nuôi dạy|tre em|trẻ em/);
+
   if (isThumbnail) {
     return {
       promptStyle: 'mexicoThumbnail',
       textMode: isBreaking ? 'shock' : 'curiosity',
       iconStyle: isBreaking ? 'alert' : 'youtubeViral',
-      size: '1920x1080'
+      size: '1536x864'
     };
   }
 
   if (isReview) {
-    return { promptStyle: 'social', textMode: 'authority', iconStyle: 'reviewRating', size: '1920x1080' };
+    return { promptStyle: 'social', textMode: 'authority', iconStyle: 'reviewRating', size: '1536x864' };
   }
 
   if (isTutorial) {
-    return { promptStyle: 'social', textMode: 'tutorialClear', iconStyle: 'tutorialGuide', size: '1920x1080' };
+    return { promptStyle: 'social', textMode: 'tutorialClear', iconStyle: 'tutorialGuide', size: '1536x864' };
   }
 
   if (isProduct) {
@@ -307,40 +935,84 @@ const getDetectedPromptSettings = (prompt) => {
     };
   }
 
+  if (isTrueCrime) {
+    return { promptStyle: 'cinematic', textMode: 'mysteryReveal', iconStyle: 'alert', size: '1536x864' };
+  }
+
+  if (isMovieAnime) {
+    return { promptStyle: 'cinematic', textMode: 'controversy', iconStyle: 'youtubeViral', size: '1536x864' };
+  }
+
+  if (isEducation) {
+    return { promptStyle: 'social', textMode: 'tutorialClear', iconStyle: 'tutorialGuide', size: '1536x864' };
+  }
+
+  if (isHistory) {
+    return { promptStyle: 'cinematic', textMode: 'mysteryReveal', iconStyle: 'mystery', size: '1536x864' };
+  }
+
+  if (isRealEstate) {
+    return { promptStyle: 'social', textMode: 'moneySuccess', iconStyle: 'finance', size: '1536x864' };
+  }
+
+  if (isAutoCar) {
+    return { promptStyle: 'premium', textMode: 'authority', iconStyle: 'reviewRating', size: '1536x864' };
+  }
+
+  if (isSports) {
+    return { promptStyle: 'social', textMode: 'shock', iconStyle: 'gaming', size: '1536x864' };
+  }
+
+  if (isPodcast) {
+    return { promptStyle: 'premium', textMode: 'emotionalStory', iconStyle: 'none', size: '1536x864' };
+  }
+
+  if (isReaction) {
+    return { promptStyle: 'social', textMode: 'shock', iconStyle: 'youtubeViral', size: '1536x864' };
+  }
+
+  if (isLaw) {
+    return { promptStyle: 'social', textMode: 'fearUrgency', iconStyle: 'alert', size: '1536x864' };
+  }
+
+  if (isParenting) {
+    return { promptStyle: 'premium', textMode: 'emotionalStory', iconStyle: 'health', size: '1536x864' };
+  }
+
   if (isTech) {
-    return { promptStyle: 'social', textMode: 'authority', iconStyle: 'techAi', size: '1920x1080' };
+    return { promptStyle: 'social', textMode: 'authority', iconStyle: 'techAi', size: '1536x864' };
   }
 
   if (isGaming) {
-    return { promptStyle: 'social', textMode: 'shock', iconStyle: 'gaming', size: '1920x1080' };
+    return { promptStyle: 'social', textMode: 'shock', iconStyle: 'gaming', size: '1536x864' };
   }
 
   if (isFinance) {
-    return { promptStyle: 'social', textMode: 'moneySuccess', iconStyle: 'finance', size: '1920x1080' };
+    return { promptStyle: 'social', textMode: 'moneySuccess', iconStyle: 'finance', size: '1536x864' };
   }
 
   if (isHealth) {
-    return { promptStyle: 'premium', textMode: 'transformation', iconStyle: 'health', size: '1920x1080' };
+    return { promptStyle: 'premium', textMode: 'transformation', iconStyle: 'health', size: '1536x864' };
   }
 
   if (isTravel) {
-    return { promptStyle: 'cinematic', textMode: 'happyPositive', iconStyle: 'travel', size: '1920x1080' };
+    return { promptStyle: 'cinematic', textMode: 'happyPositive', iconStyle: 'travel', size: '1536x864' };
   }
 
   if (isFood) {
-    return { promptStyle: 'premium', textMode: 'happyPositive', iconStyle: 'food', size: '1920x1080' };
+    return { promptStyle: 'premium', textMode: 'happyPositive', iconStyle: 'food', size: '1536x864' };
   }
 
   if (isBeforeAfter) {
-    return { promptStyle: 'social', textMode: 'transformation', iconStyle: 'beforeAfter', size: '1920x1080' };
+    return { promptStyle: 'social', textMode: 'transformation', iconStyle: 'beforeAfter', size: '1536x864' };
   }
 
   if (isMystery) {
-    return { promptStyle: 'cinematic', textMode: 'mysteryReveal', iconStyle: 'mystery', size: '1920x1080' };
+    return { promptStyle: 'cinematic', textMode: 'mysteryReveal', iconStyle: 'mystery', size: '1536x864' };
   }
 
   if (isSuccess) {
-    return { promptStyle: 'premium', textMode: 'moneySuccess', iconStyle: 'success', size: '1920x1080' };
+    return { promptStyle: 'premium', textMode: 'moneySuccess', iconStyle: 'success', size: '1536x864' };
   }
 
   if (isSocial) {
@@ -348,7 +1020,7 @@ const getDetectedPromptSettings = (prompt) => {
       promptStyle: 'social',
       textMode: 'normal',
       iconStyle: 'none',
-      size: '1920x1080'
+      size: '1536x864'
     };
   }
 
@@ -357,7 +1029,7 @@ const getDetectedPromptSettings = (prompt) => {
       promptStyle: 'cinematic',
       textMode: 'normal',
       iconStyle: 'none',
-      size: '1920x1080'
+      size: '1536x864'
     };
   }
 
@@ -371,11 +1043,19 @@ const getDetectedPromptSettings = (prompt) => {
 
 const applyDetectedPromptSettings = () => {
   const detected = getDetectedPromptSettings(promptInput.value);
+  const policy = getGemTextPolicy(promptInput.value, gemPresetSelect?.value || 'general');
+  const textModeSelect = document.querySelector('#textMode');
+  const textLanguageSelect = document.querySelector('#textLanguage');
   document.querySelector('#promptStyle').value = 'autoDetect';
   document.querySelector('#size').value = detected.size;
-  document.querySelector('#textMode').value = detected.textMode;
+  if (textLanguageSelect?.value !== 'none' && textModeSelect?.value !== 'noText') {
+    textModeSelect.value = policy.textMode || detected.textMode;
+  }
+  if (textLanguageSelect?.value === 'auto' && policy.textLanguage !== 'auto') {
+    textLanguageSelect.value = policy.textLanguage;
+  }
   document.querySelector('#iconStyle').value = detected.iconStyle;
-  statusText.textContent = `Đã nhận diện: ${detected.promptStyle}`;
+  statusText.textContent = `Đã nhận diện: ${detected.promptStyle} | ${policy.reason}`;
   updateCommand();
 };
 
@@ -405,8 +1085,19 @@ const extractQuotedTexts = (prompt) => [
 
 const applyVisualRequirements = (prompt, config) => {
   const quotedTexts = extractQuotedTexts(prompt);
+  const logoRule = config.logoDataUrl && config.logoPosition !== 'none'
+    ? 'IMPORTANT LOGO RULE: do not generate, redraw, imitate, invent, distort, or replace any logo. Leave a clean corner/negative-space area for the original logo file; the app will overlay the real logo after generation.'
+    : '';
+  const languageRules = {
+    auto: 'Use the same language as the user prompt for any visible text.',
+    vi: 'All visible on-image text must be Vietnamese only. Do not use English or Spanish words unless they are quoted by the user.',
+    en: 'All visible on-image text must be English only. Do not use Vietnamese or Spanish words unless they are quoted by the user.',
+    es: 'All visible on-image text must be Spanish only. Do not use Vietnamese or English words unless they are quoted by the user.',
+    none: 'Do not render any visible text, letters, captions, words, numbers, logos, watermarks, or readable UI text on the image.'
+  };
   const textRules = {
-    required: 'MANDATORY: include large readable Spanish headline text on the image, text must occupy 25-35% of the frame, use bold uppercase typography, high contrast red/black/yellow, no missing text.',
+    noText: 'NO TEXT MODE: create a strong thumbnail using only subject, expression, lighting, composition, icons/shapes, arrows, and color contrast. Do not render readable text.',
+    required: 'MANDATORY: include one large readable headline on the image, text must occupy 25-35% of the frame, use bold uppercase typography, high contrast, no missing text.',
     strict: 'STRICT TEXT REQUIREMENT: render all quoted headline/subtitle text exactly on the image, very large readable letters, no typos, no tiny text, no cropped words, headline must be the main visual hook.',
     normal: 'Follow the text instructions from the prompt.',
     curiosity: 'CURIOSITY HOOK: create a short mysterious headline that makes viewers want to click, use incomplete-reveal framing, strong contrast, and a clear visual question without misleading the viewer.',
@@ -443,29 +1134,68 @@ const applyVisualRequirements = (prompt, config) => {
     success: 'Add success/motivation elements: trophy/medal badge, upward arrow, winning label, premium gold highlight, and achievement marker.',
     none: 'Do not add extra icons or badges unless already requested.'
   };
-  const headlineInstruction = quotedTexts.length > 0
-    ? `Required visible on-image text: ${quotedTexts.map((text) => `"${text}"`).join(' + ')}.`
-    : 'Create a short Spanish headline from the prompt and render it large on the image.';
+  const wantsNoText = config.textMode === 'noText' || config.textLanguage === 'none';
+  const headlineInstruction = wantsNoText
+    ? 'Do not place any headline or readable text on the image.'
+    : (quotedTexts.length > 0
+      ? `Required visible on-image text: ${quotedTexts.map((text) => `"${text}"`).join(' + ')}.`
+      : 'Create one short headline from the prompt and render it large on the image.');
 
   return [
     prompt,
+    logoRule,
     headlineInstruction,
+    languageRules[config.textLanguage] || languageRules.auto,
     textRules[config.textMode] || textRules.required,
-    iconRules[config.iconStyle] || iconRules.mexicoGossip,
-    'Use 16:9 website thumbnail composition, subject face clear, text placed in clean whitespace, Mexico entertainment audience, high CTR, final image must not look textless.'
+    wantsNoText ? iconRules.none : (iconRules[config.iconStyle] || iconRules.none),
+    wantsNoText
+      ? 'Use 16:9 website thumbnail composition, subject face clear, strong focal point, high CTR, final image must be textless.'
+      : 'Use 16:9 website thumbnail composition, subject face clear, text placed in clean whitespace, high CTR, final image must use the selected text language.'
   ].join(', ');
 };
 
-const simplifyPromptForRetry = (prompt, attempt) => {
+const simplifyPromptForRetry = (prompt, attempt, config = {}) => {
   const cleanPrompt = normalizeTitleText(prompt);
   const quotedTexts = extractQuotedTexts(cleanPrompt);
-  const visibleText = quotedTexts[0] ? ` Include this readable headline: "${quotedTexts[0]}".` : '';
+  const wantsNoText = config.textMode === 'noText' || config.textLanguage === 'none';
+  const visibleText = !wantsNoText && quotedTexts[0] ? ` Include this readable headline: "${quotedTexts[0]}".` : '';
+  const languageInstruction = {
+    vi: 'Visible text language: Vietnamese only.',
+    en: 'Visible text language: English only.',
+    es: 'Visible text language: Spanish only.',
+    auto: 'Visible text language: same as the user prompt.',
+    none: 'No visible text, letters, numbers, captions, logos, or watermarks.'
+  }[config.textLanguage || 'auto'];
+  const noTextInstruction = 'No visible text, letters, numbers, captions, logos, or watermarks. Use visual storytelling only.';
 
   if (attempt === 2) {
     return [
       cleanPrompt,
-      'Simplify the scene if needed. Use a clean 16:9 composition with one clear main subject, white background, high contrast, readable text, no clutter.'
+      wantsNoText ? noTextInstruction : languageInstruction,
+      wantsNoText
+        ? 'Simplify the scene if needed. Use a clean 16:9 composition with one clear main subject, strong contrast, no clutter.'
+        : 'Simplify the scene if needed. Use a clean 16:9 composition with one clear main subject, white background, high contrast, readable text, no clutter.'
     ].join(', ');
+  }
+
+  if (attempt === 3) {
+    return [
+      cleanPrompt,
+      visibleText,
+      wantsNoText ? noTextInstruction : languageInstruction,
+      wantsNoText
+        ? 'Agent auto-optimized fallback: remove any ambiguous or risky details, keep the core idea, use one main subject, one clear background, safe editorial thumbnail style, no copyrighted logos, no real-person defamatory implication.'
+        : 'Agent auto-optimized fallback: remove any ambiguous or risky details, keep the core idea, use one main subject, one clear background, large readable headline, safe editorial thumbnail style, no copyrighted logos, no real-person defamatory implication.'
+    ].join(' ');
+  }
+
+  if (attempt === 4) {
+    return [
+      cleanPrompt,
+      visibleText,
+      wantsNoText ? noTextInstruction : languageInstruction,
+      'Create a simple safe commercial thumbnail. If any detail conflicts with policy or rendering quality, replace it with a generic visual equivalent while preserving the topic.'
+    ].join(' ');
   }
 
   return [
@@ -474,8 +1204,19 @@ const simplifyPromptForRetry = (prompt, attempt) => {
       .replace(/\s+/g, ' ')
       .trim(),
     visibleText,
-    'Create a safe 16:9 entertainment website thumbnail. Use realistic people-like subjects without implying real defamatory claims. Clean white background, bold readable headline area, professional composition.'
+    wantsNoText ? noTextInstruction : languageInstruction,
+    wantsNoText
+      ? 'Create a safe 16:9 website thumbnail. Use realistic people-like subjects without implying real defamatory claims. Clean background, strong visual hook, professional composition, no text.'
+      : 'Create a safe 16:9 website thumbnail. Use realistic people-like subjects without implying real defamatory claims. Clean background, bold readable headline area, professional composition.'
   ].join(' ');
+};
+
+const buildPromptForAttempt = (prompt, config, attempt) => {
+  if (attempt === 1) {
+    return applyVisualRequirements(enhancePrompt(prompt, config.promptStyle), config);
+  }
+
+  return simplifyPromptForRetry(prompt, attempt, config);
 };
 
 const createPayload = (config) => {
@@ -483,7 +1224,7 @@ const createPayload = (config) => {
     model: config.model,
     prompt: config.prompt,
     n: 1,
-    size: config.size,
+    size: normalizeImageSizeForRequest(config.size),
     quality: config.quality,
     background: config.background,
     image_detail: config.imageDetail,
@@ -497,20 +1238,92 @@ const createPayload = (config) => {
   return payload;
 };
 
+const normalizeEndpointForRequest = (value) => {
+  const endpointValue = String(value || '').trim();
+  const localBase = 'http://localhost:20128';
+
+  if (!endpointValue) {
+    return `${localBase}/v1/images/generations`;
+  }
+
+  if (endpointValue.startsWith(localBase) && !/\/v1\/images\/generations\/?$/.test(endpointValue)) {
+    return `${localBase}/v1/images/generations`;
+  }
+
+  if (/\/v1\/?$/.test(endpointValue)) {
+    return `${endpointValue.replace(/\/$/, '')}/images/generations`;
+  }
+
+  return endpointValue;
+};
+
+const normalizeImageSizeForRequest = (value) => {
+  const sizeValue = String(value || 'auto').trim();
+  if (!sizeValue || sizeValue === 'auto') {
+    return 'auto';
+  }
+
+  const match = sizeValue.match(/^(\d+)x(\d+)$/i);
+  if (!match) {
+    return sizeValue;
+  }
+
+  const width = Number(match[1]);
+  const height = Number(match[2]);
+  const safeCommonSizes = {
+    '1920x1080': '1536x864',
+    '1080x1920': '864x1536'
+  };
+
+  if (safeCommonSizes[`${width}x${height}`]) {
+    return safeCommonSizes[`${width}x${height}`];
+  }
+
+  if (width % 16 === 0 && height % 16 === 0) {
+    return `${width}x${height}`;
+  }
+
+  return `${Math.max(16, width - (width % 16))}x${Math.max(16, height - (height % 16))}`;
+};
+
 const shellQuote = (value) => `'${String(value).replace(/'/g, "'\\''")}'`;
 
 const maskKey = (apiKey) => `${apiKey.slice(0, 7)}...${apiKey.slice(-6)}`;
 
+const isConnectionHidden = () => connectionSection?.classList.contains('connection-hidden');
+
+const applyConnectionVisibility = (hidden) => {
+  connectionSection?.classList.toggle('connection-hidden', hidden);
+  toggleConnectionVisibilityButton?.setAttribute('aria-pressed', hidden ? 'true' : 'false');
+  toggleConnectionVisibilityButton?.setAttribute('title', hidden ? 'Hiện thông tin kết nối' : 'Ẩn thông tin kết nối');
+  localStorage.setItem('hideConnectionSection', hidden ? '1' : '0');
+  updateCommand();
+};
+
 const updateCommand = () => {
+  if (isConnectionHidden()) {
+    commandOutput.value = 'Thông tin kết nối đang được ẩn để tránh lộ khi quay video.';
+    return;
+  }
+
   const config = getFormConfig();
   const payload = createPayload(config);
-  commandOutput.value = [
+  const commandPayload = {
+    ...payload,
+    ...(payload.image?.startsWith('data:') ? { image: '[uploaded GEM image]' } : {})
+  };
+  const commandLines = [
     `curl -X POST ${shellQuote(config.endpoint)} \\`,
     '  -H "Content-Type: application/json" \\',
-    `  -H "Authorization: Bearer ${maskKey(config.apiKey)}" \\`,
     '  -H "Accept: text/event-stream" \\',
-    `  -d ${shellQuote(JSON.stringify(payload))}`
-  ].join('\n');
+    `  -d ${shellQuote(JSON.stringify(commandPayload))}`
+  ];
+
+  if (config.apiKey) {
+    commandLines.splice(2, 0, `  -H "Authorization: Bearer ${maskKey(config.apiKey)}" \\`);
+  }
+
+  commandOutput.value = commandLines.join('\n');
 };
 
 const getBatchList = () => {
@@ -518,13 +1331,20 @@ const getBatchList = () => {
   const items = [];
   let current = null;
   let isReadingPrompt = false;
+  const looseLines = [];
+  const hasStructuredMarker = lines.some((line) => /^\s*\d+[).]\s*.+?\s*$/.test(line) || /^\s*Prompt\s*[:：]/i.test(line) || /^\s*Prompt\s*[:ï¼š]/i.test(line));
+
+  if (!hasStructuredMarker) {
+    return [];
+  }
 
   const pushCurrent = () => {
     if (!current) {
       return;
     }
 
-    const prompt = current.promptLines.join('\n').trim();
+    const sourceLines = (current.sawPrompt || current.promptLines.length > 0) ? current.promptLines : current.bodyLines;
+    const prompt = sourceLines.join('\n').trim();
     if (prompt) {
       items.push({
         title: current.title,
@@ -540,13 +1360,18 @@ const getBatchList = () => {
       pushCurrent();
       current = {
         title: `${headingMatch[1]}) ${headingMatch[2].trim()}`,
-        promptLines: []
+        promptLines: [],
+        bodyLines: [],
+        sawPrompt: false
       };
       isReadingPrompt = false;
       return;
     }
 
     if (!current) {
+      if (line.trim()) {
+        looseLines.push(line.trim());
+      }
       return;
     }
 
@@ -555,13 +1380,31 @@ const getBatchList = () => {
       return;
     }
 
+    const promptMatch = line.match(/^\s*Prompt\s*[:：]\s*(.*)$/i) || line.match(/^\s*Prompt\s*[:ï¼š]\s*(.*)$/i);
+    if (promptMatch) {
+      current.sawPrompt = true;
+      isReadingPrompt = true;
+      if (promptMatch[1].trim()) {
+        current.promptLines.push(promptMatch[1].trim());
+      }
+      return;
+    }
+
     if (isReadingPrompt) {
       current.promptLines.push(line);
+    } else {
+      current.bodyLines.push(line);
     }
   });
 
   pushCurrent();
-  return items;
+  return [
+    ...looseLines.map((prompt, index) => ({
+      title: `Prompt ${index + 1}`,
+      prompt
+    })),
+    ...items
+  ];
 };
 
 const createMexicoFileTitle = (item) => {
@@ -585,13 +1428,25 @@ const getBatchItems = () => {
     return structuredItems;
   }
 
-  return batchPrompts.value
+  const typedBatchItems = batchPrompts.value
     .split(/\r?\n/)
     .map((line, index) => ({
       title: `Prompt ${index + 1}`,
       prompt: line.trim()
     }))
     .filter((item) => item.prompt);
+
+  if (typedBatchItems.length > 0) {
+    return typedBatchItems;
+  }
+
+  const currentPrompt = promptInput.value.trim() || gemPromptOutput.value.trim();
+  return currentPrompt
+    ? [{
+      title: articleTitleInput.value.trim() || 'Prompt hiện tại',
+      prompt: currentPrompt
+    }]
+    : [];
 };
 
 const getArticleTitle = (batchItems) => {
@@ -621,13 +1476,13 @@ const updateBatchCount = () => {
 
 const generateBatchImageWithRetry = async ({ baseConfig, prompt, fileTitle, index, total }) => {
   let lastError = null;
-  const maxAttempts = 4;
+  const maxAttempts = 6;
   const detectedSettings = getDetectedPromptSettings(prompt);
   const batchConfig = baseConfig.promptStyle === 'autoDetect'
     ? {
       ...baseConfig,
       promptStyle: detectedSettings.promptStyle,
-      textMode: detectedSettings.textMode,
+      textMode: baseConfig.textLanguage === 'none' ? 'noText' : detectedSettings.textMode,
       iconStyle: detectedSettings.iconStyle,
       size: detectedSettings.size
     }
@@ -639,9 +1494,7 @@ const generateBatchImageWithRetry = async ({ baseConfig, prompt, fileTitle, inde
       if (attempt > 1) {
         batchStatus.textContent = `Tự sửa prompt và thử lại ${index + 1}/${total} lần ${attempt}`;
       }
-      const promptForAttempt = attempt === 1
-        ? applyVisualRequirements(enhancePrompt(prompt, batchConfig.promptStyle), batchConfig)
-        : simplifyPromptForRetry(prompt, attempt);
+      const promptForAttempt = buildPromptForAttempt(prompt, batchConfig, attempt);
 
       return await window.toolApi.generateImage({
         ...batchConfig,
@@ -653,6 +1506,9 @@ const generateBatchImageWithRetry = async ({ baseConfig, prompt, fileTitle, inde
       });
     } catch (error) {
       lastError = error;
+      if (!shouldRetryGenerationError(error)) {
+        throw error;
+      }
       if (stopBatchRequested || error.message.includes('Đã dừng')) {
         throw error;
       }
@@ -666,6 +1522,74 @@ const generateBatchImageWithRetry = async ({ baseConfig, prompt, fileTitle, inde
   }
 
   throw lastError;
+};
+
+const generateSingleImageWithRetry = async (config) => {
+  let lastError = null;
+  const maxAttempts = 6;
+  const retryConfig = {
+    ...config,
+    promptStyle: config.promptStyle === 'autoDetect' ? config.effectivePromptStyle : config.promptStyle
+  };
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    try {
+      activeRequestId = crypto.randomUUID();
+      if (attempt > 1) {
+        setStatus(`Tu dong toi uu prompt va thu lai lan ${attempt}/${maxAttempts}...`);
+      }
+
+      return await window.toolApi.generateImage({
+        ...retryConfig,
+        prompt: buildPromptForAttempt(config.fileTitle || config.prompt, retryConfig, attempt),
+        requestId: activeRequestId
+      });
+    } catch (error) {
+      lastError = error;
+      if (stopBatchRequested || error.message.includes('ÄÃ£ dá»«ng')) {
+        throw error;
+      }
+
+      if (attempt < maxAttempts) {
+        await wait(1000 + (attempt * 500));
+      }
+    } finally {
+      activeRequestId = null;
+    }
+  }
+
+  throw lastError;
+};
+
+const applyLogoToResult = async ({ result, config, index = 0, isBatch = false }) => {
+  if (!config.logoDataUrl || config.logoPosition === 'none') {
+    return result;
+  }
+
+  const imageUrl = await composeLogoOnImage({
+    imageUrl: result.imageUrl,
+    logoUrl: config.logoDataUrl,
+    position: config.logoPosition,
+    logoSize: config.logoSize,
+    outputFormat: config.outputFormat
+  });
+  const savedPath = await window.toolApi.saveImageDataUrl({
+    dataUrl: imageUrl,
+    prompt: config.fileTitle || config.prompt,
+    index,
+    outputFormat: config.outputFormat,
+    outputDir: config.outputDir,
+    isBatch,
+    articleTitle: config.articleTitle
+  });
+
+  return {
+    ...result,
+    imageUrl,
+    savedPath,
+    originalSavedPath: result.savedPath,
+    logoApplied: true
+  };
 };
 
 const setLoading = (isLoading) => {
@@ -719,13 +1643,8 @@ const getDaysLeft = (value) => {
 };
 
 const applyMemberPlanPreset = () => {
-  const presets = {
-    monthly: { price: 99000, quota: 100, days: 30, devices: 1 },
-    trial: { price: 0, quota: 10, days: 7, devices: 1 },
-    vip: { price: 199000, quota: 300, days: 30, devices: 2 }
-  };
-  const preset = presets[memberPlanSelect.value] || presets.monthly;
-  memberPriceInput.value = preset.price;
+  const preset = getMemberPlanPreset(memberPlanSelect.value);
+  memberPriceInput.value = preset.priceLabel;
   memberQuotaInput.value = preset.quota;
   memberExpiresAtInput.value = addDays(preset.days);
   memberDeviceLimitInput.value = preset.devices;
@@ -740,6 +1659,99 @@ const memberActionButton = (label, onClick) => {
   return button;
 };
 
+const memberEditInput = (name, value, type = 'text', attrs = {}) => {
+  const input = document.createElement('input');
+  input.name = name;
+  input.type = type;
+  input.value = value ?? '';
+  Object.entries(attrs).forEach(([key, attrValue]) => input.setAttribute(key, attrValue));
+  return input;
+};
+
+const memberEditSelect = (name, value, options) => {
+  const select = document.createElement('select');
+  select.name = name;
+  options.forEach(([optionValue, label]) => {
+    const option = document.createElement('option');
+    option.value = optionValue;
+    option.textContent = label;
+    select.append(option);
+  });
+  select.value = value;
+  return select;
+};
+
+const renderMemberEditRow = (user) => {
+  const tr = document.createElement('tr');
+  tr.className = 'member-edit-row';
+
+  const emailCell = document.createElement('td');
+  emailCell.append(memberEditInput('email', user.email, 'email', { required: 'required' }));
+
+  const planCell = document.createElement('td');
+  const planFields = document.createElement('div');
+  planFields.className = 'member-edit-fields';
+  const planSelect = memberEditSelect('planId', getMemberPlanId(user), [
+    ['trial', 'Dùng thử - 0đ'],
+    ['monthly', 'Gói tháng - 99.000đ'],
+    ['vip', 'VIP - 199.000đ']
+  ]);
+  const priceInput = memberEditInput('monthlyPrice', Number(user.monthlyPrice || 0), 'number', { min: '0' });
+  planSelect.addEventListener('change', () => {
+    const preset = getMemberPlanPreset(planSelect.value);
+    priceInput.value = preset.price;
+  });
+  planFields.append(
+    planSelect,
+    priceInput,
+    memberEditSelect('paymentStatus', user.paymentStatus || getMemberPlanPreset(getMemberPlanId(user)).paymentStatus, [
+      ['trial', 'Dùng thử'],
+      ['paid', 'Đã thanh toán'],
+      ['unpaid', 'Chưa thanh toán']
+    ])
+  );
+  planCell.append(planFields);
+
+  const statusCell = document.createElement('td');
+  statusCell.append(memberEditSelect('status', user.status || 'active', [
+    ['active', 'Active'],
+    ['blocked', 'Blocked']
+  ]));
+
+  const quotaCell = document.createElement('td');
+  const quotaFields = document.createElement('div');
+  quotaFields.className = 'member-edit-fields two';
+  quotaFields.append(
+    memberEditInput('quotaUsed', Number(user.quotaUsed || 0), 'number', { min: '0' }),
+    memberEditInput('quotaTotal', Number(user.quotaTotal || 0), 'number', { min: '0' })
+  );
+  quotaCell.append(quotaFields);
+
+  const expiresCell = document.createElement('td');
+  expiresCell.append(memberEditInput('expiresAt', user.expiresAt || '', 'date'));
+
+  const devicesCell = document.createElement('td');
+  devicesCell.append(memberEditInput('deviceLimit', Number(user.deviceLimit || 1), 'number', { min: '1' }));
+
+  const actionsCell = document.createElement('td');
+  const actions = document.createElement('div');
+  actions.className = 'member-actions';
+  const passwordInput = memberEditInput('password', '', 'password', { placeholder: 'Mật khẩu mới' });
+  passwordInput.className = 'member-password-edit';
+  actions.append(
+    passwordInput,
+    memberActionButton('Lưu', () => saveMemberEdit(user.id, tr)),
+    memberActionButton('Hủy', () => {
+      editingMemberId = null;
+      loadMemberDashboard();
+    })
+  );
+  actionsCell.append(actions);
+
+  tr.append(emailCell, planCell, statusCell, quotaCell, expiresCell, devicesCell, actionsCell);
+  return tr;
+};
+
 const renderMemberDashboard = ({ stats, users }) => {
   memberStatRevenue.textContent = formatVnd(stats.estimatedMonthlyRevenue);
   memberStatUsers.textContent = stats.users;
@@ -749,6 +1761,10 @@ const renderMemberDashboard = ({ stats, users }) => {
   memberStatImages.textContent = stats.imagesCreated;
   memberStatFailures.textContent = stats.failures;
   memberTableBody.replaceChildren(...users.map((user) => {
+    if (editingMemberId === user.id) {
+      return renderMemberEditRow(user);
+    }
+
     const tr = document.createElement('tr');
     const remaining = Math.max(0, Number(user.quotaTotal || 0) - Number(user.quotaUsed || 0));
 
@@ -760,7 +1776,7 @@ const renderMemberDashboard = ({ stats, users }) => {
     const planPrice = document.createElement('span');
     plan.className = 'member-plan-cell';
     planName.textContent = user.planName || 'Gói tháng';
-    planPrice.textContent = formatVnd(user.monthlyPrice || 99000);
+    planPrice.textContent = formatVnd(user.monthlyPrice ?? getMemberPlanPreset(getMemberPlanId(user)).price);
     plan.append(planName, planPrice);
 
     const statusCell = document.createElement('td');
@@ -786,9 +1802,13 @@ const renderMemberDashboard = ({ stats, users }) => {
     const actionWrap = document.createElement('div');
     actionWrap.className = 'member-actions';
     actionWrap.append(
+      memberActionButton('Sửa', () => {
+        editingMemberId = user.id;
+        renderMemberDashboard({ stats, users });
+      }),
       memberActionButton(user.status === 'active' ? 'Khóa' : 'Mở', () => updateMember(user.id, { status: user.status === 'active' ? 'blocked' : 'active' })),
       memberActionButton('Reset quota', () => updateMember(user.id, { quotaUsed: 0 })),
-      memberActionButton('Gia hạn', () => updateMember(user.id, { expiresAt: addDays(30), monthlyPrice: user.monthlyPrice || 99000 })),
+      memberActionButton('Gia hạn', () => updateMember(user.id, { expiresAt: addDays(30), monthlyPrice: user.monthlyPrice ?? getMemberPlanPreset(getMemberPlanId(user)).price })),
       memberActionButton('Xóa thiết bị', () => updateMember(user.id, { clearDevices: true }))
     );
     actions.append(actionWrap);
@@ -803,13 +1823,22 @@ const loadMemberDashboard = async () => {
   try {
     const dashboard = await window.toolApi.getAdminDashboard();
     renderMemberDashboard(dashboard);
-    setMemberStatus('Đã cập nhật');
+    setMemberStatus(dashboard.storage?.mode === 'cloud'
+      ? `Dữ liệu khách hàng CLOUD: ${dashboard.storage.apiBaseUrl}`
+      : dashboard.storage?.dbFile
+      ? `Dữ liệu khách hàng đang lưu tại: ${dashboard.storage.dbFile} | Backup: ${dashboard.storage.backupDir}`
+      : 'Đã cập nhật');
   } catch (error) {
     setMemberStatus(error.message || 'Không tải được bảng thành viên');
   }
 };
 
 const openMemberPanel = async () => {
+  if (appConfig?.app?.flavor !== 'admin') {
+    setLoginStatus('Bản user không có quyền quản lý thành viên.', 'error');
+    return;
+  }
+
   memberPanelOverlay.classList.remove('hidden');
   await loadMemberDashboard();
 };
@@ -823,10 +1852,39 @@ const updateMember = async (id, changes) => {
   try {
     const result = await window.toolApi.updateMemberUser({ id, changes });
     renderMemberDashboard(result.dashboard);
-    setMemberStatus('Đã lưu');
+    setMemberStatus(result.dashboard.storage?.mode === 'cloud'
+      ? `Đã lưu trên CLOUD: ${result.dashboard.storage.apiBaseUrl}`
+      : result.dashboard.storage?.dbFile
+      ? `Đã lưu. Database: ${result.dashboard.storage.dbFile}`
+      : 'Đã lưu');
   } catch (error) {
     setMemberStatus(error.message || 'Không lưu được thay đổi');
   }
+};
+
+const saveMemberEdit = async (id, row) => {
+  const formData = new FormData();
+  row.querySelectorAll('input, select').forEach((field) => formData.set(field.name, field.value));
+  const planId = String(formData.get('planId') || 'monthly');
+  const preset = getMemberPlanPreset(planId);
+  const changes = {
+    email: String(formData.get('email') || '').trim(),
+    planName: preset.label,
+    monthlyPrice: Number(formData.get('monthlyPrice') || preset.price),
+    paymentStatus: String(formData.get('paymentStatus') || preset.paymentStatus),
+    status: String(formData.get('status') || 'active'),
+    quotaUsed: Number(formData.get('quotaUsed') || 0),
+    quotaTotal: Number(formData.get('quotaTotal') || 0),
+    expiresAt: String(formData.get('expiresAt') || '') || null,
+    deviceLimit: Number(formData.get('deviceLimit') || 1)
+  };
+  const password = String(formData.get('password') || '');
+  if (password) {
+    changes.password = password;
+  }
+
+  editingMemberId = null;
+  await updateMember(id, changes);
 };
 
 clearPromptButton.addEventListener('click', () => {
@@ -837,6 +1895,83 @@ clearPromptButton.addEventListener('click', () => {
 });
 
 detectPromptButton.addEventListener('click', applyDetectedPromptSettings);
+
+gemPresetSelect?.addEventListener('change', () => {
+  syncGemInstruction();
+  if (promptInput.value.trim() || gemPromptOutput.value.trim()) {
+    analyzeGemPrompt();
+  }
+});
+
+gemReferenceModeSelect?.addEventListener('change', () => {
+  if (promptInput.value.trim() || gemPromptOutput.value.trim()) {
+    analyzeGemPrompt();
+  }
+});
+
+gemSimilarityInput?.addEventListener('input', () => {
+  gemSimilarityValue.textContent = `${gemSimilarityInput.value}%`;
+});
+
+gemSimilarityInput?.addEventListener('change', () => {
+  if (promptInput.value.trim() || gemPromptOutput.value.trim()) {
+    analyzeGemPrompt();
+  }
+});
+
+gemImageFileInput?.addEventListener('change', async () => {
+  const [file] = gemImageFileInput.files || [];
+  if (!file) {
+    return;
+  }
+  if (gemFileName) {
+    gemFileName.textContent = file.name;
+  }
+
+  const dataUrl = await new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(file);
+  });
+  document.querySelector('#refImageUrl').value = dataUrl;
+  statusText.textContent = 'Đã nạp ảnh mẫu GEM';
+  analyzeGemPrompt();
+  updateCommand();
+});
+
+logoFileInput?.addEventListener('change', async () => {
+  const [file] = logoFileInput.files || [];
+  if (!file) {
+    logoDataUrl = '';
+    if (logoFileName) {
+      logoFileName.textContent = 'Không dùng logo';
+    }
+    updateCommand();
+    return;
+  }
+
+  logoDataUrl = await readFileAsDataUrl(file);
+  if (logoFileName) {
+    logoFileName.textContent = file.name;
+  }
+  statusText.textContent = 'Đã nạp logo gốc. Logo sẽ được ghép sau khi tạo ảnh.';
+  updateCommand();
+});
+
+analyzeGemButton?.addEventListener('click', () => {
+  analyzeGemPrompt();
+});
+
+applyGemPromptButton?.addEventListener('click', () => {
+  const prompt = gemPromptOutput.value.trim() || analyzeGemPrompt();
+  promptInput.value = prompt;
+  isArticleTitleManual = false;
+  syncArticleTitleFromPrompt();
+  applyDetectedPromptSettings();
+  updateCommand();
+  promptInput.focus();
+});
 
 chooseOutputDirButton.addEventListener('click', async () => {
   const selectedDir = await window.toolApi.selectOutputDir();
@@ -855,6 +1990,10 @@ toggleApiKeyButton.addEventListener('click', () => {
   const isHidden = apiKeyInput.type === 'password';
   apiKeyInput.type = isHidden ? 'text' : 'password';
   toggleApiKeyButton.textContent = isHidden ? 'Ẩn' : 'Hiện';
+});
+
+toggleConnectionVisibilityButton?.addEventListener('click', () => {
+  applyConnectionVisibility(!isConnectionHidden());
 });
 
 loginForm.addEventListener('submit', async (event) => {
@@ -895,19 +2034,15 @@ memberPlanSelect.addEventListener('change', applyMemberPlanPreset);
 memberCreateForm.addEventListener('submit', async (event) => {
   event.preventDefault();
   setMemberStatus('Đang thêm thành viên...');
-  const planLabels = {
-    monthly: 'Gói tháng',
-    trial: 'Dùng thử',
-    vip: 'VIP'
-  };
+  const preset = getMemberPlanPreset(memberPlanSelect.value);
 
   try {
     const result = await window.toolApi.createMemberUser({
       email: document.querySelector('#memberEmail').value.trim(),
       password: document.querySelector('#memberPassword').value,
-      planName: planLabels[memberPlanSelect.value] || 'Gói tháng',
-      monthlyPrice: Number(memberPriceInput.value || 0),
-      paymentStatus: memberPriceInput.value === '0' ? 'trial' : 'paid',
+      planName: preset.label,
+      monthlyPrice: preset.price,
+      paymentStatus: preset.paymentStatus,
       quotaTotal: Number(memberQuotaInput.value || 0),
       expiresAt: memberExpiresAtInput.value || null,
       deviceLimit: Number(memberDeviceLimitInput.value || 1)
@@ -916,7 +2051,11 @@ memberCreateForm.addEventListener('submit', async (event) => {
     memberPlanSelect.value = 'monthly';
     applyMemberPlanPreset();
     renderMemberDashboard(result.dashboard);
-    setMemberStatus('Đã thêm thành viên');
+    setMemberStatus(result.dashboard.storage?.mode === 'cloud'
+      ? `Đã thêm thành viên trên CLOUD: ${result.dashboard.storage.apiBaseUrl}`
+      : result.dashboard.storage?.dbFile
+      ? `Đã thêm thành viên. Database: ${result.dashboard.storage.dbFile}`
+      : 'Đã thêm thành viên');
   } catch (error) {
     setMemberStatus(error.message || 'Không thêm được thành viên');
   }
@@ -926,10 +2065,34 @@ promptInput.addEventListener('input', () => {
   syncArticleTitleFromPrompt();
   if (document.querySelector('#promptStyle').value === 'autoDetect') {
     const detected = getDetectedPromptSettings(promptInput.value);
+    const policy = getGemTextPolicy(promptInput.value, gemPresetSelect?.value || 'general');
+    const textModeSelect = document.querySelector('#textMode');
+    const textLanguageSelect = document.querySelector('#textLanguage');
     document.querySelector('#size').value = detected.size;
-    document.querySelector('#textMode').value = detected.textMode;
+    if (textLanguageSelect?.value !== 'none' && textModeSelect?.value !== 'noText' && textModeSelect?.value !== 'autoText') {
+      textModeSelect.value = policy.textMode || detected.textMode;
+    }
+    if (textLanguageSelect?.value === 'auto' && policy.textLanguage !== 'auto') {
+      textLanguageSelect.value = policy.textLanguage;
+    }
     document.querySelector('#iconStyle').value = detected.iconStyle;
   }
+});
+
+document.querySelector('#textLanguage')?.addEventListener('change', (event) => {
+  if (event.target.value === 'none') {
+    document.querySelector('#textMode').value = 'noText';
+  }
+  updateCommand();
+});
+
+document.querySelector('#textMode')?.addEventListener('change', (event) => {
+  if (event.target.value === 'noText') {
+    document.querySelector('#textLanguage').value = 'none';
+  } else if (document.querySelector('#textLanguage')?.value === 'none') {
+    document.querySelector('#textLanguage').value = 'auto';
+  }
+  updateCommand();
 });
 
 articleTitleInput.addEventListener('input', () => {
@@ -967,24 +2130,22 @@ imageForm.addEventListener('submit', async (event) => {
     return;
   }
 
+  stopBatchRequested = false;
   setLoading(true);
   setStatus('Đang gửi yêu cầu tạo ảnh…');
 
   try {
     const config = getFormConfig();
-    activeRequestId = crypto.randomUUID();
     const startedAt = new Date();
-    const result = await window.toolApi.generateImage({
-      ...config,
-      requestId: activeRequestId
-    });
+    const rawResult = await generateSingleImageWithRetry(config);
+    const result = await applyLogoToResult({ result: rawResult, config });
 
     previewImage.src = result.imageUrl;
     previewImage.classList.remove('hidden');
     clearPreviewGrid();
     addPreviewTile({
       imageUrl: result.imageUrl,
-      title: config.fileTitle || config.prompt,
+      title: config.articleTitle || createTitleFromPrompt(config.fileTitle || config.prompt),
       index: 1
     });
     downloadLink.href = result.imageUrl;
@@ -999,7 +2160,7 @@ imageForm.addEventListener('submit', async (event) => {
     statusText.textContent = 'Hoàn tất';
   } catch (error) {
     statusText.textContent = 'Thất bại';
-    outputLog.textContent = error.message;
+    outputLog.textContent = `Loi tao anh:\n${summarizeError(error)}`;
   } finally {
     activeRequestId = null;
     setLoading(false);
@@ -1083,15 +2244,25 @@ runBatchButton.addEventListener('click', async () => {
       const prompt = item.prompt;
       const fileTitle = createMexicoFileTitle({ ...item, index: index + 1 });
       batchStatus.textContent = `Đang tạo ${index + 1}/${batchItems.length}`;
-      outputLog.textContent = `Đang tạo: ${prompt}`;
+      renderBatchLog(results, batchItems.length, `Dang tao ${index + 1}/${batchItems.length}: ${compactPrompt(prompt, 220)}`);
 
       try {
-        const result = await generateBatchImageWithRetry({
+        const rawResult = await generateBatchImageWithRetry({
           baseConfig,
           prompt,
           fileTitle,
           index,
           total: batchItems.length
+        });
+        const result = await applyLogoToResult({
+          result: rawResult,
+          config: {
+            ...baseConfig,
+            prompt,
+            fileTitle
+          },
+          index,
+          isBatch: true
         });
 
         results.push({
@@ -1120,19 +2291,19 @@ runBatchButton.addEventListener('click', async () => {
           fileTitle,
           prompt,
           ok: false,
-          error: error.message
+          error: summarizeError(error)
         });
         addPreviewErrorTile({
           title: fileTitle,
           index: index + 1,
-          error: error.message
+          error: summarizeError(error)
         });
         batchStatus.textContent = `Lỗi ${index + 1}/${batchItems.length}, tiếp tục ảnh kế tiếp`;
       } finally {
         activeRequestId = null;
       }
 
-      outputLog.textContent = JSON.stringify(results, null, 2);
+      renderBatchLog(results, batchItems.length);
       if (!stopBatchRequested && index < batchItems.length - 1) {
         await wait(Number(batchDelay.value) || 0);
       }
@@ -1152,6 +2323,7 @@ runBatchButton.addEventListener('click', async () => {
           size: baseConfig.size,
           quality: baseConfig.quality,
           textMode: baseConfig.textMode,
+          textLanguage: baseConfig.textLanguage,
           iconStyle: baseConfig.iconStyle,
           promptStyle: baseConfig.promptStyle,
           outputFormat: baseConfig.outputFormat
@@ -1164,22 +2336,27 @@ runBatchButton.addEventListener('click', async () => {
     const failedCount = results.filter((item) => !item.ok).length;
     batchStatus.textContent = `${stopBatchRequested ? 'Đã dừng' : 'Hoàn tất'}: ${successCount} thành công, ${failedCount} lỗi / ${batchItems.length}`;
     statusText.textContent = failedCount > 0 ? `Xong nhưng lỗi ${failedCount} ảnh` : (stopBatchRequested ? 'Đã dừng hàng loạt' : 'Hoàn tất hàng loạt');
-    outputLog.textContent = JSON.stringify({ manifestPath, results }, null, 2);
+    renderBatchLog(results, batchItems.length, `Manifest: ${manifestPath}`);
     await refreshCurrentUser();
     activeRequestId = null;
     setBatchLoading(false);
   }
 });
 
-setVersion();
-outputDirInput.value = localStorage.getItem('outputDir') || '';
-applyMemberPlanPreset();
-syncArticleTitleFromPrompt();
-updateCommand();
-updateBatchCount();
-setAuthenticated({
-  token: '',
-  user: {
-    email: 'Local image endpoint workspace'
-  }
+const initializeApp = async () => {
+  await setVersion();
+  outputDirInput.value = localStorage.getItem('outputDir') || '';
+  applyMemberPlanPreset();
+  syncGemInstruction();
+  syncArticleTitleFromPrompt();
+  applyConnectionVisibility(localStorage.getItem('hideConnectionSection') === '1');
+  document.querySelector('#quality').value = 'auto';
+  updateCommand();
+  updateBatchCount();
+  await restoreAuthSession();
+};
+
+initializeApp().catch((error) => {
+  setLoginStatus(error.message || 'Không khởi tạo được ứng dụng.', 'error');
+  setAuthenticated(null);
 });

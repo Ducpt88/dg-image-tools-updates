@@ -15,6 +15,7 @@ const {
   publicUser,
   validateUserForUse,
   recordImageEvent,
+  recordSecurityEvent,
   listEvents,
   getStats,
   createOrder,
@@ -23,12 +24,15 @@ const {
 
 const app = express();
 const PORT = Number(process.env.PORT || 3030);
-const JWT_SECRET = process.env.JWT_SECRET || 'change-this-secret-before-production';
+const isProduction = process.env.NODE_ENV === 'production';
+const DEFAULT_JWT_SECRET = 'change-this-secret-before-production';
+const JWT_SECRET = process.env.JWT_SECRET || DEFAULT_JWT_SECRET;
 const ROUTER_IMAGE_ENDPOINT = process.env.ROUTER_IMAGE_ENDPOINT || 'http://localhost:20128/v1/images/generations';
 const ROUTER_QUOTA_ENDPOINT = process.env.ROUTER_QUOTA_ENDPOINT || '';
 const ROUTER_QUOTA_TOTAL = Number(process.env.ROUTER_QUOTA_TOTAL || 0);
 const ROUTER_API_KEY = process.env.ROUTER_API_KEY || '';
 const SHEETS_WEBHOOK_URL = process.env.SHEETS_WEBHOOK_URL || '';
+const ADMIN_ALERT_EMAIL = process.env.ADMIN_ALERT_EMAIL || 'hoangvant77internet@gmail.com';
 const SALES_SHEET_ID = process.env.SALES_SHEET_ID || '1YL2mY6uYJCNrLASNjev7g7XDiPYVi4wBy8S_V7Ntlzg';
 const BANK_ID = process.env.BANK_ID || '';
 const BANK_ACCOUNT_NO = process.env.BANK_ACCOUNT_NO || '';
@@ -38,13 +42,27 @@ const PAYMENT_IMAGES = {
   monthly: '/image/assets/payment-99000.svg',
   vip: '/image/assets/payment-199000.svg'
 };
+const IMAGE_SITE_DIR = path.join(__dirname, '..', 'image');
 const USER_API = '/api/9router/user';
 const ADMIN_API = '/api/9router/admin';
 const LOCAL_ADMIN_HOSTS = new Set(['localhost', '127.0.0.1', '::1']);
 
+if (isProduction && (!process.env.JWT_SECRET || JWT_SECRET === DEFAULT_JWT_SECRET)) {
+  throw new Error('Production requires a strong JWT_SECRET. Refusing to start with the default secret.');
+}
+
 app.disable('x-powered-by');
 app.use(helmet({
-  contentSecurityPolicy: false
+  contentSecurityPolicy: {
+    useDefaults: true,
+    directives: {
+      "default-src": ["'self'"],
+      "script-src": ["'self'", "'unsafe-inline'"],
+      "style-src": ["'self'", "'unsafe-inline'"],
+      "img-src": ["'self'", 'data:', 'https://img.vietqr.io'],
+      "connect-src": ["'self'", 'https://script.google.com', 'https://script.googleusercontent.com']
+    }
+  }
 }));
 app.use(express.json({ limit: '2mb' }));
 app.use((req, res, next) => {
@@ -428,6 +446,13 @@ const sendSheetEvent = async (event) => {
   }
 };
 
+const sendSecurityAlert = async (event) => sendSheetEvent({
+  type: 'security_alert',
+  alertEmail: ADMIN_ALERT_EMAIL,
+  subject: `[DG Image Tools] Canh bao bao mat: ${event.reason}`,
+  ...event
+});
+
 const readQuotaNumber = (data, keys) => {
   for (const key of keys) {
     const value = key.split('.').reduce((target, part) => target?.[part], data);
@@ -509,8 +534,9 @@ const requireAdmin = (req, res, next) => {
 
 const allowLocalAdmin = (req, _res, next) => {
   const hostname = String(req.hostname || '').toLowerCase();
+  const localAdminAllowed = !isProduction || process.env.ALLOW_LOCAL_ADMIN === 'true';
 
-  if (!req.get('authorization') && LOCAL_ADMIN_HOSTS.has(hostname)) {
+  if (localAdminAllowed && !req.get('authorization') && LOCAL_ADMIN_HOSTS.has(hostname)) {
     req.user = {
       id: 'local-admin',
       email: 'local-admin@9router.local',
@@ -550,6 +576,19 @@ const loginHandler = async (req, res) => {
       user
     });
   } catch (error) {
+    const event = await recordSecurityEvent({
+      email: req.body.email,
+      deviceId: req.body.deviceId,
+      reason: 'login_failed',
+      severity: 'medium',
+      appFlavor: 'backend',
+      detail: {
+        ip: req.ip,
+        userAgent: req.get('user-agent') || '',
+        error: error.message
+      }
+    });
+    await sendSecurityAlert(event);
     res.status(401).json({ message: error.message });
   }
 };
@@ -781,6 +820,10 @@ app.patch('/api/admin/users/:id', allowLocalAdmin, requireAdminAccess, updateUse
 app.get('/api/admin/events', allowLocalAdmin, requireAdminAccess, eventsHandler);
 app.get('/api/admin/orders', allowLocalAdmin, requireAdminAccess, listOrdersHandler);
 
+app.use('/image/assets', express.static(path.join(IMAGE_SITE_DIR, 'assets'), {
+  maxAge: '7d',
+  immutable: true
+}));
 app.use('/9router-admin', express.static(path.join(__dirname, 'public', 'admin')));
 app.use('/admin', express.static(path.join(__dirname, 'public', 'admin')));
 

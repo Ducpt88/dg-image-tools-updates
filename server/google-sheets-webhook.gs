@@ -3,7 +3,7 @@ const SALES_SHEET_ID = '1YL2mY6uYJCNrLASNjev7g7XDiPYVi4wBy8S_V7Ntlzg';
 function doPost(e) {
   const data = JSON.parse((e && e.postData && e.postData.contents) || '{}');
   const ss = SpreadsheetApp.openById(data.sheetId || SALES_SHEET_ID);
-  const sheetName = data.type === 'sales_order' ? 'orders' : 'events';
+  const sheetName = data.type === 'sales_order' ? 'orders' : (data.type === 'security_alert' ? 'security_alerts' : 'events');
   const sheet = ss.getSheetByName(sheetName) || ss.insertSheet(sheetName);
 
   if (data.type === 'sales_order') {
@@ -41,6 +41,38 @@ function doPost(e) {
       data.transferContent || '',
       data.note || ''
     ]);
+  } else if (data.type === 'security_alert') {
+    ensureHeader_(sheet, ['createdAt', 'severity', 'reason', 'email', 'userId', 'deviceId', 'appFlavor', 'appVersion', 'detail']);
+    sheet.appendRow([
+      data.createdAt || new Date().toISOString(),
+      data.severity || '',
+      data.reason || '',
+      data.email || '',
+      data.userId || '',
+      data.deviceId || '',
+      data.appFlavor || '',
+      data.appVersion || '',
+      data.detail || ''
+    ]);
+
+    if (data.alertEmail) {
+      MailApp.sendEmail({
+        to: data.alertEmail,
+        subject: data.subject || '[DG Image Tools] Security alert',
+        body: [
+          'DG Image Tools security alert',
+          '',
+          'Time: ' + (data.createdAt || new Date().toISOString()),
+          'Severity: ' + (data.severity || ''),
+          'Reason: ' + (data.reason || ''),
+          'Email: ' + (data.email || ''),
+          'User ID: ' + (data.userId || ''),
+          'Device ID: ' + (data.deviceId || ''),
+          'App: ' + (data.appFlavor || '') + ' ' + (data.appVersion || ''),
+          'Detail: ' + (data.detail || '')
+        ].join('\n')
+      });
+    }
   } else {
     ensureHeader_(sheet, ['createdAt', 'email', 'ok', 'deviceId', 'prompt', 'error']);
     sheet.appendRow([
