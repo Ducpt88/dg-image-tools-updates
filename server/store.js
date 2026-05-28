@@ -104,6 +104,28 @@ const ensureAdminUser = async () => {
   const db = await readDb();
   const existing = db.users.find((user) => user.email === adminEmail);
   if (existing) {
+    let changed = false;
+
+    if (!(await bcrypt.compare(adminPassword, existing.passwordHash || ''))) {
+      existing.passwordHash = await bcrypt.hash(adminPassword, 12);
+      changed = true;
+    }
+
+    if (existing.role !== 'admin') {
+      existing.role = 'admin';
+      changed = true;
+    }
+
+    if (existing.status !== 'active') {
+      existing.status = 'active';
+      changed = true;
+    }
+
+    if (changed) {
+      existing.updatedAt = new Date().toISOString();
+      await writeDb(db);
+    }
+
     return;
   }
 
