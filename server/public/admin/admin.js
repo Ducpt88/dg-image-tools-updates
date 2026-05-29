@@ -90,11 +90,11 @@ const buildEmailSequence = (flow, rows) => rows.map(([day, stage, trigger, subje
 
 const emailSequences = [
   ...buildEmailSequence('pending', [
-    [0, 'Xac nhan don', 'Vua tao don tra phi', 'Da nhan thong tin dang ky DG Image Tools', 'Xac nhan ma chuyen khoan va mo kenh tu van', 'Gui email/Zalo xac nhan goi, so tien, ma chuyen khoan; hoi khach co can tu van goi hoac ho tro thanh toan khong'],
-    [0, 'Nhac sau 1 gio', 'Da tao don nhung chua thanh toan', 'Anh/chi co can tu van truoc khi thanh toan khong?', 'Go rao can truoc khi khach roi di', 'Nhan Zalo/call nhe: xac nhan nhu cau lam thumbnail, nhac chuyen dung noi dung neu muon tiep tuc'],
-    [1, 'Nhac 24 gio', 'Qua 24 gio chua thanh toan', 'Don DG Image Tools cua anh/chi van dang duoc giu', 'Keo lai khach con nhu cau', 'Gui lai ma chuyen khoan, nhac loi ich theo goi va hoi vuong gia, cai dat hay chat luong anh'],
-    [3, 'Tu van lai', '2-3 ngay chua thanh toan', 'Minh tu van lai goi phu hop de anh/chi khoi mua sai', 'Chuyen tu nhac tien sang tu van', 'Hoi tan suat lam anh, so kenh, co team khong; goi y Goi thang/VIP/Dung thu phu hop'],
-    [7, 'Dong vong', '7 ngay chua thanh toan', 'Anh/chi con muon giu don DG Image Tools khong?', 'Don pipeline va xin phan hoi', 'Hoi 1 cau ngan ve ly do chua thanh toan; neu chua san sang thi chuyen sang danh sach nuoi lead']
+    [0, 'X\u00e1c nh\u1eadn \u0111\u01a1n', 'V\u1eeba t\u1ea1o \u0111\u01a1n tr\u1ea3 ph\u00ed', '\u0110\u00e3 nh\u1eadn th\u00f4ng tin \u0111\u0103ng k\u00fd DG Image Tools', 'X\u00e1c nh\u1eadn m\u00e3 chuy\u1ec3n kho\u1ea3n v\u00e0 m\u1edf k\u00eanh t\u01b0 v\u1ea5n', 'G\u1eedi email/Zalo x\u00e1c nh\u1eadn g\u00f3i, s\u1ed1 ti\u1ec1n, m\u00e3 chuy\u1ec3n kho\u1ea3n; h\u1ecfi kh\u00e1ch c\u00f3 c\u1ea7n t\u01b0 v\u1ea5n g\u00f3i ho\u1eb7c h\u1ed7 tr\u1ee3 thanh to\u00e1n kh\u00f4ng'],
+    [0, 'Nh\u1eafc sau 1 gi\u1edd', '\u0110\u00e3 t\u1ea1o \u0111\u01a1n nh\u01b0ng ch\u01b0a thanh to\u00e1n', 'Anh/ch\u1ecb c\u00f3 c\u1ea7n t\u01b0 v\u1ea5n tr\u01b0\u1edbc khi thanh to\u00e1n kh\u00f4ng?', 'G\u1ee1 r\u00e0o c\u1ea3n tr\u01b0\u1edbc khi kh\u00e1ch r\u1eddi \u0111i', 'Nh\u1eafn Zalo/call nh\u1eb9: x\u00e1c nh\u1eadn nhu c\u1ea7u l\u00e0m thumbnail, nh\u1eafc chuy\u1ec3n \u0111\u00fang n\u1ed9i dung n\u1ebfu mu\u1ed1n ti\u1ebfp t\u1ee5c'],
+    [1, 'Nh\u1eafc 24 gi\u1edd', 'Qua 24 gi\u1edd ch\u01b0a thanh to\u00e1n', '\u0110\u01a1n DG Image Tools c\u1ee7a anh/ch\u1ecb v\u1eabn \u0111ang \u0111\u01b0\u1ee3c gi\u1eef', 'K\u00e9o l\u1ea1i kh\u00e1ch c\u00f2n nhu c\u1ea7u', 'G\u1eedi l\u1ea1i m\u00e3 chuy\u1ec3n kho\u1ea3n, nh\u1eafc l\u1ee3i \u00edch theo g\u00f3i v\u00e0 h\u1ecfi v\u01b0\u1edbng gi\u00e1, c\u00e0i \u0111\u1eb7t hay ch\u1ea5t l\u01b0\u1ee3ng \u1ea3nh'],
+    [3, 'T\u01b0 v\u1ea5n l\u1ea1i', '2-3 ng\u00e0y ch\u01b0a thanh to\u00e1n', 'M\u00ecnh t\u01b0 v\u1ea5n l\u1ea1i g\u00f3i ph\u00f9 h\u1ee3p \u0111\u1ec3 anh/ch\u1ecb kh\u1ecfi mua sai', 'Chuy\u1ec3n t\u1eeb nh\u1eafc ti\u1ec1n sang t\u01b0 v\u1ea5n', 'H\u1ecfi t\u1ea7n su\u1ea5t l\u00e0m \u1ea3nh, s\u1ed1 k\u00eanh, c\u00f3 team kh\u00f4ng; g\u1ee3i \u00fd G\u00f3i th\u00e1ng/VIP/D\u00f9ng th\u1eed ph\u00f9 h\u1ee3p'],
+    [7, '\u0110\u00f3ng v\u00f2ng', '7 ng\u00e0y ch\u01b0a thanh to\u00e1n', 'Anh/ch\u1ecb c\u00f2n mu\u1ed1n gi\u1eef \u0111\u01a1n DG Image Tools kh\u00f4ng?', 'D\u1ecdn pipeline v\u00e0 xin ph\u1ea3n h\u1ed3i', 'H\u1ecfi 1 c\u00e2u ng\u1eafn v\u1ec1 l\u00fd do ch\u01b0a thanh to\u00e1n; n\u1ebfu ch\u01b0a s\u1eb5n s\u00e0ng th\u00ec chuy\u1ec3n sang danh s\u00e1ch nu\u00f4i lead']
   ]),
   ...buildEmailSequence('free', [
     [1, 'Kích hoạt', 'Vừa đăng ký free', 'Tài khoản dùng thử DG Image Tools đã sẵn sàng', 'Giao tài khoản và video bắt đầu', 'Gửi email tài khoản + video cài app/đăng nhập/tạo ảnh đầu tiên'],
@@ -233,11 +233,11 @@ const formatOrderAge = (value) => {
 };
 
 const workflowMeta = {
-  pending: { label: 'Don cho thanh toan', short: 'Don cho', tone: 'warning', description: 'Xu ly lead da de lai thong tin nhung chua thanh toan: xac nhan, nhac mem, tu van lai, dong vong.' },
-  trial: { label: 'Thanh vien dung thu', short: 'Dung thu', tone: 'info', description: 'Dua khach dang nhap, tao anh dau tien, thay gia tri va nang cap len tra phi.' },
-  free: { label: 'Thanh vien dung thu', short: 'Dung thu', tone: 'info', description: 'Dua khach dang nhap, tao anh dau tien, thay gia tri va nang cap len tra phi.' },
-  paid: { label: 'Thanh vien tra phi', short: 'Tra phi', tone: 'success', description: 'Dam bao khach bat dau dung duoc, tao anh dau tien, duoc ho tro prompt va dung app deu.' },
-  renewal: { label: 'Gia han / winback', short: 'Gia han', tone: 'danger', description: 'Nhac het han, goi y nang VIP, cuu khach dung it va kich hoat lai khach cu.' }
+  pending: { label: '\u0110\u01a1n ch\u1edd thanh to\u00e1n', short: '\u0110\u01a1n ch\u1edd', tone: 'warning', description: 'X\u1eed l\u00fd lead \u0111\u00e3 \u0111\u1ec3 l\u1ea1i th\u00f4ng tin nh\u01b0ng ch\u01b0a thanh to\u00e1n: x\u00e1c nh\u1eadn, nh\u1eafc m\u1ec1m, t\u01b0 v\u1ea5n l\u1ea1i v\u00e0 \u0111\u00f3ng v\u00f2ng.' },
+  trial: { label: 'Th\u00e0nh vi\u00ean d\u00f9ng th\u1eed', short: 'D\u00f9ng th\u1eed', tone: 'info', description: '\u0110\u01b0a kh\u00e1ch \u0111\u0103ng nh\u1eadp, t\u1ea1o \u1ea3nh \u0111\u1ea7u ti\u00ean, th\u1ea5y gi\u00e1 tr\u1ecb v\u00e0 n\u00e2ng c\u1ea5p l\u00ean tr\u1ea3 ph\u00ed.' },
+  free: { label: 'Th\u00e0nh vi\u00ean d\u00f9ng th\u1eed', short: 'D\u00f9ng th\u1eed', tone: 'info', description: '\u0110\u01b0a kh\u00e1ch \u0111\u0103ng nh\u1eadp, t\u1ea1o \u1ea3nh \u0111\u1ea7u ti\u00ean, th\u1ea5y gi\u00e1 tr\u1ecb v\u00e0 n\u00e2ng c\u1ea5p l\u00ean tr\u1ea3 ph\u00ed.' },
+  paid: { label: 'Th\u00e0nh vi\u00ean tr\u1ea3 ph\u00ed', short: 'Tr\u1ea3 ph\u00ed', tone: 'success', description: '\u0110\u1ea3m b\u1ea3o kh\u00e1ch b\u1eaft \u0111\u1ea7u d\u00f9ng \u0111\u01b0\u1ee3c, t\u1ea1o \u1ea3nh \u0111\u1ea7u ti\u00ean, \u0111\u01b0\u1ee3c h\u1ed7 tr\u1ee3 prompt v\u00e0 d\u00f9ng app \u0111\u1ec1u.' },
+  renewal: { label: 'Gia h\u1ea1n / winback', short: 'Gia h\u1ea1n', tone: 'danger', description: 'Nh\u1eafc h\u1ebft h\u1ea1n, g\u1ee3i \u00fd n\u00e2ng VIP, c\u1ee9u kh\u00e1ch d\u00f9ng \u00edt v\u00e0 k\u00edch ho\u1ea1t l\u1ea1i kh\u00e1ch c\u0169.' }
 };
 
 const workflowOrder = ['pending', 'trial', 'paid', 'renewal'];
@@ -246,14 +246,14 @@ const getFlowLabel = (flow) => workflowMeta[flow]?.label || workflowMeta.trial.l
 
 const getPendingPaymentCareAction = (order) => {
   if (!order.customerEmailSentAt) {
-    return 'Gui email/Zalo xac nhan don, ma chuyen khoan va hoi khach co can tu van goi truoc khi thanh toan khong.';
+    return 'G\u1eedi email/Zalo x\u00e1c nh\u1eadn \u0111\u01a1n, m\u00e3 chuy\u1ec3n kho\u1ea3n v\u00e0 h\u1ecfi kh\u00e1ch c\u00f3 c\u1ea7n t\u01b0 v\u1ea5n g\u00f3i tr\u01b0\u1edbc khi thanh to\u00e1n kh\u00f4ng.';
   }
 
   const hours = Math.max(0, Math.floor((Date.now() - new Date(order.createdAt || 0).getTime()) / 3600000));
-  if (hours < 6) return 'Nhan Zalo kiem tra khach da thay ma chuyen khoan chua; khong ep mua, mo loi tu van neu con phan van.';
-  if (hours < 24) return 'Nhac mem: don van duoc giu, chuyen khoan dung ma hoac tra loi neu can tu van goi phu hop.';
-  if (hours < 72) return 'Goi/Zalo hoi vuong o gia, cai dat hay chat luong anh; goi y dung thu neu khach chua chac.';
-  return 'Chot nhu cau: hoi con muon giu don khong, neu chua san sang thi chuyen sang nuoi lead dai han.';
+  if (hours < 6) return 'Nh\u1eafn Zalo ki\u1ec3m tra kh\u00e1ch \u0111\u00e3 th\u1ea5y m\u00e3 chuy\u1ec3n kho\u1ea3n ch\u01b0a; kh\u00f4ng \u00e9p mua, m\u1edf l\u1eddi t\u01b0 v\u1ea5n n\u1ebfu c\u00f2n ph\u00e2n v\u00e2n.';
+  if (hours < 24) return 'Nh\u1eafc m\u1ec1m: \u0111\u01a1n v\u1eabn \u0111\u01b0\u1ee3c gi\u1eef, chuy\u1ec3n kho\u1ea3n \u0111\u00fang m\u00e3 ho\u1eb7c tr\u1ea3 l\u1eddi n\u1ebfu c\u1ea7n t\u01b0 v\u1ea5n g\u00f3i ph\u00f9 h\u1ee3p.';
+  if (hours < 72) return 'G\u1ecdi/Zalo h\u1ecfi v\u01b0\u1edbng \u1edf gi\u00e1, c\u00e0i \u0111\u1eb7t hay ch\u1ea5t l\u01b0\u1ee3ng \u1ea3nh; g\u1ee3i \u00fd d\u00f9ng th\u1eed n\u1ebfu kh\u00e1ch ch\u01b0a ch\u1eafc.';
+  return 'Ch\u1ed1t nhu c\u1ea7u: h\u1ecfi c\u00f2n mu\u1ed1n gi\u1eef \u0111\u01a1n kh\u00f4ng, n\u1ebfu ch\u01b0a s\u1eb5n s\u00e0ng th\u00ec chuy\u1ec3n sang nu\u00f4i lead d\u00e0i h\u1ea1n.';
 };
 
 const getEmailRecommendedAction = (email) => {
@@ -262,15 +262,15 @@ const getEmailRecommendedAction = (email) => {
 
   if (!email.lastLoginAt) {
     return isPaid
-      ? 'Khach tra phi chua dang nhap: goi/Zalo ngay, gui lai tai khoan va video dang nhap de tranh khach bi ket sau thanh toan.'
-      : 'Khach dung thu chua dang nhap: nhac kiem tra Inbox/Spam, gui lai tai khoan qua Zalo va yeu cau tao thu 1 anh hom nay.';
+      ? 'Kh\u00e1ch tr\u1ea3 ph\u00ed ch\u01b0a \u0111\u0103ng nh\u1eadp: g\u1ecdi/Zalo ngay, g\u1eedi l\u1ea1i t\u00e0i kho\u1ea3n v\u00e0 video \u0111\u0103ng nh\u1eadp \u0111\u1ec3 tr\u00e1nh kh\u00e1ch b\u1ecb k\u1eb9t sau thanh to\u00e1n.'
+      : 'Kh\u00e1ch d\u00f9ng th\u1eed ch\u01b0a \u0111\u0103ng nh\u1eadp: nh\u1eafc ki\u1ec3m tra Inbox/Spam, g\u1eedi l\u1ea1i t\u00e0i kho\u1ea3n qua Zalo v\u00e0 y\u00eau c\u1ea7u t\u1ea1o th\u1eed 1 \u1ea3nh h\u00f4m nay.';
   }
 
   if (used <= 0) {
-    return 'Da dang nhap nhung chua tao anh: gui 3 prompt mau theo ngach va huong dan tao anh dau tien trong 5 phut.';
+    return '\u0110\u00e3 \u0111\u0103ng nh\u1eadp nh\u01b0ng ch\u01b0a t\u1ea1o \u1ea3nh: g\u1eedi 3 prompt m\u1eabu theo ng\u00e1ch v\u00e0 h\u01b0\u1edbng d\u1eabn t\u1ea1o \u1ea3nh \u0111\u1ea7u ti\u00ean trong 5 ph\u00fat.';
   }
 
-  return email.recommendedAction || 'Theo doi tiep: hoi chat luong anh co dung y khong va goi y nang cap neu khach dung deu.';
+  return email.recommendedAction || 'Theo d\u00f5i ti\u1ebfp: h\u1ecfi ch\u1ea5t l\u01b0\u1ee3ng \u1ea3nh c\u00f3 \u0111\u00fang \u00fd kh\u00f4ng v\u00e0 g\u1ee3i \u00fd n\u00e2ng c\u1ea5p n\u1ebfu kh\u00e1ch d\u00f9ng \u0111\u1ec1u.';
 };
 
 const appendTextCell = (row, value, className = '') => {
@@ -548,7 +548,7 @@ const getEmailWorkflowRows = (flow) => {
   return emailSequences.filter((item) => item.flow === flow);
 };
 
-const getWorkflowDescription = (flow) => workflowMeta[flow]?.description || 'Workflow cham soc thanh vien theo trang thai su dung.';
+const getWorkflowDescription = (flow) => workflowMeta[flow]?.description || 'Workflow ch\u0103m s\u00f3c th\u00e0nh vi\u00ean theo tr\u1ea1ng th\u00e1i s\u1eed d\u1ee5ng.';
 
 const renderEmailCenterSummary = (sequenceRows = []) => {
   const needsFollowUp = cachedEmailHistory.filter((email) => !email.lastLoginAt || Number(email.quotaUsed || 0) <= 0);
@@ -564,7 +564,7 @@ const renderEmailCenterSummary = (sequenceRows = []) => {
   emailSequenceFlowLabel.textContent = flowLabel;
   emailPriorityTitle.textContent = `${needsFollowUp.length} khách cần nhắc`;
   emailPriorityText.textContent = firstCare
-    ? `Uu tien ${firstCare.customerName || firstCare.to || firstCare.orderCode}: ${getEmailRecommendedAction(firstCare)}`
+    ? `\u01afu ti\u00ean ${firstCare.customerName || firstCare.to || firstCare.orderCode}: ${getEmailRecommendedAction(firstCare)}`
     : 'Không có khách bị kẹt trong lịch sử email hiện tại.';
   emailSequenceTitle.textContent = `${sequenceRows.length} bước trong chuỗi ${flowLabel}`;
   emailSequenceText.textContent = getWorkflowDescription(flow);
@@ -612,7 +612,7 @@ const renderWorkflowTabs = (activeFlow, rows) => {
     const button = document.createElement('button');
     button.type = 'button';
     button.className = 'workflow-tab ' + meta.tone + (flow === activeFlow ? ' active' : '');
-    button.innerHTML = '<strong>' + meta.short + '</strong><span>' + count + ' buoc</span>';
+    button.innerHTML = '<strong>' + meta.short + '</strong><span>' + count + ' b\u01b0\u1edbc</span>';
     button.addEventListener('click', () => {
       sequenceFlowFilter.value = flow;
       renderEmailSequences();
@@ -627,10 +627,10 @@ const renderWorkflowInsight = (flow, rows) => {
   const first = rows[0];
   const last = rows[rows.length - 1];
   workflowInsight.className = 'workflow-insight ' + meta.tone;
-  workflowInsight.innerHTML = '<div><span>Workflow dang xem</span><strong>' + meta.label + '</strong><p>' + meta.description + '</p></div>'
-    + '<dl><div><dt>So buoc</dt><dd>' + rows.length + '</dd></div>'
-    + '<div><dt>Bat dau</dt><dd>' + (first ? 'Ngay ' + first.day : '-') + '</dd></div>'
-    + '<div><dt>Ket thuc</dt><dd>' + (last ? 'Ngay ' + last.day : '-') + '</dd></div></dl>';
+  workflowInsight.innerHTML = '<div><span>Workflow \u0111ang xem</span><strong>' + meta.label + '</strong><p>' + meta.description + '</p></div>'
+    + '<dl><div><dt>S\u1ed1 b\u01b0\u1edbc</dt><dd>' + rows.length + '</dd></div>'
+    + '<div><dt>B\u1eaft \u0111\u1ea7u</dt><dd>' + (first ? 'Ng\u00e0y ' + first.day : '-') + '</dd></div>'
+    + '<div><dt>K\u1ebft th\u00fac</dt><dd>' + (last ? 'Ng\u00e0y ' + last.day : '-') + '</dd></div></dl>';
 };
 
 const renderEmailSequences = () => {
@@ -639,7 +639,7 @@ const renderEmailSequences = () => {
   const flowLabel = getFlowLabel(flow);
 
   if (sequenceCount) {
-    sequenceCount.textContent = rows.length + ' buoc';
+    sequenceCount.textContent = rows.length + ' b\u01b0\u1edbc';
   }
   renderWorkflowTabs(flow, rows);
   renderWorkflowInsight(flow, rows);
@@ -647,7 +647,7 @@ const renderEmailSequences = () => {
   sequenceBody.replaceChildren(...rows.map((item) => {
     const row = document.createElement('tr');
     row.className = 'workflow-row ' + (workflowMeta[flow]?.tone || '');
-    const dayCell = appendTextCell(row, 'Ngay ' + item.day);
+    const dayCell = appendTextCell(row, 'Ng\u00e0y ' + item.day);
     dayCell.className = 'workflow-day-cell';
     appendTextCell(row, item.stage || '-');
     appendTextCell(row, item.trigger || '-', 'prompt-cell');
