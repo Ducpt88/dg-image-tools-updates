@@ -267,17 +267,21 @@
               <h2>Workflow kich ban email</h2>
               <p>Moi workflow la mot luong cham soc rieng theo trang thai: don cho thanh toan, thanh vien dung thu, thanh vien tra phi va gia han/winback.</p>
             </div>
-            <div class="table-tools sequence-tools">
-              <select id="sequenceFlowFilter">
-                <option value="pending">Don cho thanh toan</option>
-                <option value="trial">Thanh vien dung thu</option>
-                <option value="paid">Thanh vien tra phi</option>
-                <option value="renewal">Gia han / winback</option>
-              </select>
-              <span id="sequenceCount" class="muted-text"></span>
+            <div class="workflow-toolbar">
+              <div id="workflowTabs" class="workflow-tabs" aria-label="Chon workflow email"></div>
+              <div class="workflow-select-row">
+                <select id="sequenceFlowFilter" aria-label="Workflow email">
+                  <option value="pending">Don cho thanh toan</option>
+                  <option value="trial">Thanh vien dung thu</option>
+                  <option value="paid">Thanh vien tra phi</option>
+                  <option value="renewal">Gia han / winback</option>
+                </select>
+                <span id="sequenceCount" class="workflow-count"></span>
+              </div>
             </div>
           </header>
-          <div class="table-wrap">
+          <div id="workflowInsight" class="workflow-insight"></div>
+          <div class="table-wrap workflow-table-wrap">
             <table class="sequence-table">
               <thead>
                 <tr>

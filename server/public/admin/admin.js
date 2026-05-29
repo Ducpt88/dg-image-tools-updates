@@ -23,6 +23,8 @@ const emailHistoryBody = document.querySelector('#emailHistoryBody');
 const sequenceFlowFilter = document.querySelector('#sequenceFlowFilter');
 const sequenceBody = document.querySelector('#sequenceBody');
 const sequenceCount = document.querySelector('#sequenceCount');
+const workflowTabs = document.querySelector('#workflowTabs');
+const workflowInsight = document.querySelector('#workflowInsight');
 const userSearch = document.querySelector('#userSearch');
 const statusFilter = document.querySelector('#statusFilter');
 const roleFilter = document.querySelector('#roleFilter');
@@ -230,13 +232,17 @@ const formatOrderAge = (value) => {
   return `${days} ngày chưa thanh toán, gọi/Zalo hỏi còn nhu cầu không`;
 };
 
-const getFlowLabel = (flow) => ({
-  pending: 'Workflow don cho thanh toan',
-  trial: 'Workflow thanh vien dung thu',
-  free: 'Workflow thanh vien dung thu',
-  paid: 'Workflow thanh vien tra phi',
-  renewal: 'Workflow gia han va winback'
-}[flow] || 'Workflow thanh vien dung thu');
+const workflowMeta = {
+  pending: { label: 'Don cho thanh toan', short: 'Don cho', tone: 'warning', description: 'Xu ly lead da de lai thong tin nhung chua thanh toan: xac nhan, nhac mem, tu van lai, dong vong.' },
+  trial: { label: 'Thanh vien dung thu', short: 'Dung thu', tone: 'info', description: 'Dua khach dang nhap, tao anh dau tien, thay gia tri va nang cap len tra phi.' },
+  free: { label: 'Thanh vien dung thu', short: 'Dung thu', tone: 'info', description: 'Dua khach dang nhap, tao anh dau tien, thay gia tri va nang cap len tra phi.' },
+  paid: { label: 'Thanh vien tra phi', short: 'Tra phi', tone: 'success', description: 'Dam bao khach bat dau dung duoc, tao anh dau tien, duoc ho tro prompt va dung app deu.' },
+  renewal: { label: 'Gia han / winback', short: 'Gia han', tone: 'danger', description: 'Nhac het han, goi y nang VIP, cuu khach dung it va kich hoat lai khach cu.' }
+};
+
+const workflowOrder = ['pending', 'trial', 'paid', 'renewal'];
+
+const getFlowLabel = (flow) => workflowMeta[flow]?.label || workflowMeta.trial.label;
 
 const getPendingPaymentCareAction = (order) => {
   if (!order.customerEmailSentAt) {
@@ -542,12 +548,7 @@ const getEmailWorkflowRows = (flow) => {
   return emailSequences.filter((item) => item.flow === flow);
 };
 
-const getWorkflowDescription = (flow) => ({
-  pending: 'Workflow xu ly lead da de lai thong tin nhung chua thanh toan: xac nhan, nhac mem, tu van lai, dong vong.',
-  trial: 'Workflow thanh vien dung thu: dua khach dang nhap, tao anh dau tien, trai nghiem gia tri va nang cap len tra phi.',
-  paid: 'Workflow thanh vien tra phi: dam bao khach bat dau dung duoc, tao anh dau tien, duoc ho tro prompt va dung app deu.',
-  renewal: 'Workflow gia han/winback: nhac het han, goi y nang VIP, cuu khach dung it va kich hoat lai khach cu.'
-}[flow] || 'Workflow cham soc thanh vien theo trang thai su dung.');
+const getWorkflowDescription = (flow) => workflowMeta[flow]?.description || 'Workflow cham soc thanh vien theo trang thai su dung.';
 
 const renderEmailCenterSummary = (sequenceRows = []) => {
   const needsFollowUp = cachedEmailHistory.filter((email) => !email.lastLoginAt || Number(email.quotaUsed || 0) <= 0);
@@ -603,18 +604,51 @@ const renderPendingPayments = (orders) => {
   }));
 };
 
+const renderWorkflowTabs = (activeFlow, rows) => {
+  if (!workflowTabs) return;
+  workflowTabs.replaceChildren(...workflowOrder.map((flow) => {
+    const meta = workflowMeta[flow];
+    const count = getEmailWorkflowRows(flow).length;
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'workflow-tab ' + meta.tone + (flow === activeFlow ? ' active' : '');
+    button.innerHTML = '<strong>' + meta.short + '</strong><span>' + count + ' buoc</span>';
+    button.addEventListener('click', () => {
+      sequenceFlowFilter.value = flow;
+      renderEmailSequences();
+    });
+    return button;
+  }));
+};
+
+const renderWorkflowInsight = (flow, rows) => {
+  if (!workflowInsight) return;
+  const meta = workflowMeta[flow] || workflowMeta.trial;
+  const first = rows[0];
+  const last = rows[rows.length - 1];
+  workflowInsight.className = 'workflow-insight ' + meta.tone;
+  workflowInsight.innerHTML = '<div><span>Workflow dang xem</span><strong>' + meta.label + '</strong><p>' + meta.description + '</p></div>'
+    + '<dl><div><dt>So buoc</dt><dd>' + rows.length + '</dd></div>'
+    + '<div><dt>Bat dau</dt><dd>' + (first ? 'Ngay ' + first.day : '-') + '</dd></div>'
+    + '<div><dt>Ket thuc</dt><dd>' + (last ? 'Ngay ' + last.day : '-') + '</dd></div></dl>';
+};
+
 const renderEmailSequences = () => {
   const flow = sequenceFlowFilter?.value || 'pending';
   const rows = getEmailWorkflowRows(flow);
   const flowLabel = getFlowLabel(flow);
 
   if (sequenceCount) {
-    sequenceCount.textContent = `${flowLabel}: ${rows.length} bước`;
+    sequenceCount.textContent = rows.length + ' buoc';
   }
+  renderWorkflowTabs(flow, rows);
+  renderWorkflowInsight(flow, rows);
 
   sequenceBody.replaceChildren(...rows.map((item) => {
     const row = document.createElement('tr');
-    appendTextCell(row, `Ngày ${item.day}`);
+    row.className = 'workflow-row ' + (workflowMeta[flow]?.tone || '');
+    const dayCell = appendTextCell(row, 'Ngay ' + item.day);
+    dayCell.className = 'workflow-day-cell';
     appendTextCell(row, item.stage || '-');
     appendTextCell(row, item.trigger || '-', 'prompt-cell');
     appendTextCell(row, item.subject || '-', 'prompt-cell');

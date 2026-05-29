@@ -177,8 +177,50 @@ th:nth-child(10), td:nth-child(10) { width: 300px; }
   .dashboard-view { padding: 10px; }
   .topbar { position: static; }
   .topbar, .panel-title, .workspace-title { display: grid; }
-  .topbar-actions, .workspace-actions, .table-tools, .create-grid, .stats-grid, .management-grid, .email-summary-grid, .email-action-grid { grid-template-columns: 1fr; width: 100%; }
+  .topbar-actions, .workspace-actions, .table-tools, .create-grid, .stats-grid, .management-grid, .email-summary-grid, .email-action-grid, .workflow-tabs, .workflow-select-row { grid-template-columns: 1fr; width: 100%; }
   .agent-insights { grid-template-columns: 1fr; }
+  .workflow-insight { display: grid; }
+  .workflow-insight dl { grid-template-columns: 1fr; }
   .create-grid button[type="submit"] { grid-column: auto; }
   .brand-logo { width: 40px; height: 40px; }
 }
+
+
+.workflow-toolbar { display: grid; gap: 10px; min-width: min(720px, 100%); }
+.workflow-tabs { display: grid; grid-template-columns: repeat(4, minmax(128px, 1fr)); gap: 8px; }
+.workflow-tab { display: grid; align-content: center; justify-items: start; gap: 3px; min-height: 58px; border: 1px solid #d7e1ee; border-left: 4px solid #1267d6; border-radius: 8px; background: #fff; color: #12202f; padding: 8px 10px; box-shadow: none; }
+.workflow-tab strong { font-size: 13px; line-height: 1.15; }
+.workflow-tab span { color: #627386; font-size: 12px; font-weight: 800; }
+.workflow-tab.active { background: #f8fbff; border-color: #1267d6; box-shadow: 0 0 0 3px rgba(18,103,214,.12); }
+.workflow-tab.warning { border-left-color: #d97706; }
+.workflow-tab.info { border-left-color: #1267d6; }
+.workflow-tab.success { border-left-color: #16a34a; }
+.workflow-tab.danger { border-left-color: #dc2626; }
+.workflow-select-row { display: grid; grid-template-columns: minmax(220px, 320px) auto; gap: 10px; align-items: center; justify-content: end; }
+.workflow-count { display: inline-flex; align-items: center; justify-content: center; min-height: 34px; border: 1px solid #d7e1ee; border-radius: 999px; background: #fff; color: #40566c; padding: 0 12px; font-weight: 900; white-space: nowrap; }
+.workflow-insight { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin: 12px 14px 0; border: 1px solid #dfe7f1; border-left: 4px solid #1267d6; border-radius: 8px; background: #fbfdff; padding: 13px 14px; }
+.workflow-insight.warning { border-left-color: #d97706; }
+.workflow-insight.info { border-left-color: #1267d6; }
+.workflow-insight.success { border-left-color: #16a34a; }
+.workflow-insight.danger { border-left-color: #dc2626; }
+.workflow-insight span { color: #506477; font-weight: 900; }
+.workflow-insight strong { display: block; margin-top: 3px; font-size: 18px; line-height: 1.2; }
+.workflow-insight p { margin-top: 5px; line-height: 1.45; }
+.workflow-insight dl { display: grid; grid-template-columns: repeat(3, minmax(82px, auto)); gap: 8px; margin: 0; }
+.workflow-insight dl div { display: grid; gap: 4px; border: 1px solid #e3eaf3; border-radius: 8px; background: #fff; padding: 8px 10px; min-width: 88px; }
+.workflow-insight dt { color: #627386; font-size: 12px; font-weight: 900; }
+.workflow-insight dd { margin: 0; color: #12202f; font-size: 15px; font-weight: 900; }
+.workflow-table-wrap { margin-top: 12px; border-top: 1px solid #eef2f6; }
+.sequence-table { min-width: 1180px; }
+.sequence-table th:nth-child(1), .sequence-table td:nth-child(1) { width: 92px; }
+.sequence-table th:nth-child(2), .sequence-table td:nth-child(2) { width: 150px; }
+.sequence-table th:nth-child(3), .sequence-table td:nth-child(3) { width: 230px; }
+.sequence-table th:nth-child(4), .sequence-table td:nth-child(4) { width: 260px; }
+.sequence-table th:nth-child(5), .sequence-table td:nth-child(5) { width: 230px; }
+.sequence-table th:nth-child(6), .sequence-table td:nth-child(6) { width: 360px; }
+.sequence-table .prompt-cell { white-space: normal; overflow: visible; text-overflow: clip; line-height: 1.45; max-width: none; }
+.workflow-row:hover td { background: #fbfdff; }
+.workflow-day-cell { color: #075985; font-weight: 900; white-space: nowrap; }
+.workflow-row.warning .workflow-day-cell { color: #b45309; }
+.workflow-row.success .workflow-day-cell { color: #15803d; }
+.workflow-row.danger .workflow-day-cell { color: #b42318; }
