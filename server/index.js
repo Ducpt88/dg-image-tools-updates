@@ -1337,6 +1337,49 @@ const listOrdersHandler = async (req, res) => {
   res.json({ orders: await listOrders(req.query.limit) });
 };
 
+const listEmailHistoryHandler = async (req, res) => {
+  const orders = await listOrders(req.query.limit || 300);
+  const users = await listUsers();
+  const usersByEmail = new Map(users.map((user) => [String(user.email || '').toLowerCase(), user]));
+  const emails = orders
+    .filter((order) => order.customerEmailSentAt)
+    .map((order) => {
+      const user = usersByEmail.get(String(order.accountEmail || order.email || '').toLowerCase()) || null;
+      const quotaUsed = Number(user?.quotaUsed || 0);
+      const lastLoginAt = user?.lastLoginAt || null;
+      const usageStatus = quotaUsed > 0
+        ? 'Đã sử dụng app'
+        : lastLoginAt
+          ? 'Đã đăng nhập, chưa tạo ảnh'
+          : 'Chưa đăng nhập';
+      const recommendedAction = quotaUsed > 0
+        ? 'Không cần xử lý'
+        : lastLoginAt
+          ? 'Nhắn hướng dẫn tạo ảnh đầu tiên'
+          : 'Gọi/Zalo nhắc khách kiểm tra email, spam và gửi lại thông tin đăng nhập nếu cần';
+
+      return {
+        id: order.id,
+        sentAt: order.customerEmailSentAt,
+        to: order.email,
+        customerName: order.customerName,
+        orderCode: order.code,
+        planName: order.planName,
+        quotaTotal: order.quotaTotal,
+        quotaUsed,
+        lastLoginAt,
+        usageStatus,
+        recommendedAction,
+        expiresAt: order.expiresAt,
+        status: order.status,
+        accountEmail: order.accountEmail || user?.email || order.email
+      };
+    })
+    .sort((left, right) => new Date(right.sentAt).getTime() - new Date(left.sentAt).getTime());
+
+  res.json({ emails });
+};
+
 const paymentStatusHandler = async (req, res) => {
   const order = await getOrderByCode(req.params.code);
   if (!order) {
@@ -1398,6 +1441,7 @@ app.post(`${ADMIN_API}/users`, allowLocalAdmin, requireAdminAccess, createUserHa
 app.patch(`${ADMIN_API}/users/:id`, allowLocalAdmin, requireAdminAccess, updateUserHandler);
 app.get(`${ADMIN_API}/events`, allowLocalAdmin, requireAdminAccess, eventsHandler);
 app.get(`${ADMIN_API}/orders`, allowLocalAdmin, requireAdminAccess, listOrdersHandler);
+app.get(`${ADMIN_API}/email-history`, allowLocalAdmin, requireAdminAccess, listEmailHistoryHandler);
 app.post('/api/sales/orders', createOrderHandler);
 app.get('/api/sales/orders/:code/payment-status', paymentStatusHandler);
 app.post('/api/sepay/webhook', sepayWebhookHandler);
@@ -1416,6 +1460,7 @@ app.post('/api/admin/users', allowLocalAdmin, requireAdminAccess, createUserHand
 app.patch('/api/admin/users/:id', allowLocalAdmin, requireAdminAccess, updateUserHandler);
 app.get('/api/admin/events', allowLocalAdmin, requireAdminAccess, eventsHandler);
 app.get('/api/admin/orders', allowLocalAdmin, requireAdminAccess, listOrdersHandler);
+app.get('/api/admin/email-history', allowLocalAdmin, requireAdminAccess, listEmailHistoryHandler);
 
 app.use('/image/assets', express.static(path.join(IMAGE_SITE_DIR, 'assets'), {
   maxAge: '7d',

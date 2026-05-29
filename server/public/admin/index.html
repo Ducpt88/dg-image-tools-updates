@@ -161,6 +161,65 @@
             </table>
           </div>
         </section>
+
+        <section class="panel">
+          <header class="panel-title toolbar-title">
+            <div>
+              <h2>Danh mục chuỗi email tự động</h2>
+              <p>Lịch chăm sóc ngày 1-30 và các mốc dài hơn cho luồng Free bán lên trả phí hoặc luồng Trả phí hỗ trợ/gia hạn.</p>
+            </div>
+            <div class="table-tools sequence-tools">
+              <select id="sequenceFlowFilter">
+                <option value="free">Free -> trả phí</option>
+                <option value="paid">Trả phí -> hỗ trợ/gia hạn</option>
+              </select>
+              <span id="sequenceCount" class="muted-text"></span>
+            </div>
+          </header>
+          <div class="table-wrap">
+            <table class="sequence-table">
+              <thead>
+                <tr>
+                  <th>Ngày</th>
+                  <th>Giai đoạn</th>
+                  <th>Điều kiện gửi</th>
+                  <th>Tiêu đề email</th>
+                  <th>Mục tiêu</th>
+                  <th>Hành động/nội dung</th>
+                </tr>
+              </thead>
+              <tbody id="sequenceBody"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="panel">
+          <header class="panel-title">
+            <div>
+              <h2>Lịch sử gửi email</h2>
+              <p>Theo dõi email đã gửi, khách đã đăng nhập/tạo ảnh chưa và việc nên làm nếu khách đang bị kẹt.</p>
+            </div>
+          </header>
+          <div class="table-wrap">
+            <table class="email-history-table">
+              <thead>
+                <tr>
+                  <th>Thời gian gửi</th>
+                  <th>Email nhận</th>
+                  <th>Khách hàng</th>
+                  <th>Mã đơn</th>
+                  <th>Trạng thái sử dụng</th>
+                  <th>Đăng nhập cuối</th>
+                  <th>Đã dùng</th>
+                  <th>Việc nên làm</th>
+                  <th>Gói</th>
+                  <th>Hết hạn</th>
+                </tr>
+              </thead>
+              <tbody id="emailHistoryBody"></tbody>
+            </table>
+          </div>
+        </section>
       </section>
     </main>
 
