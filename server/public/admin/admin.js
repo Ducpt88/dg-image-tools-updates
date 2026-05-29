@@ -87,6 +87,13 @@ const buildEmailSequence = (flow, rows) => rows.map(([day, stage, trigger, subje
 }));
 
 const emailSequences = [
+  ...buildEmailSequence('pending', [
+    [0, 'Xac nhan don', 'Vua tao don tra phi', 'Da nhan thong tin dang ky DG Image Tools', 'Xac nhan ma chuyen khoan va mo kenh tu van', 'Gui email/Zalo xac nhan goi, so tien, ma chuyen khoan; hoi khach co can tu van goi hoac ho tro thanh toan khong'],
+    [0, 'Nhac sau 1 gio', 'Da tao don nhung chua thanh toan', 'Anh/chi co can tu van truoc khi thanh toan khong?', 'Go rao can truoc khi khach roi di', 'Nhan Zalo/call nhe: xac nhan nhu cau lam thumbnail, nhac chuyen dung noi dung neu muon tiep tuc'],
+    [1, 'Nhac 24 gio', 'Qua 24 gio chua thanh toan', 'Don DG Image Tools cua anh/chi van dang duoc giu', 'Keo lai khach con nhu cau', 'Gui lai ma chuyen khoan, nhac loi ich theo goi va hoi vuong gia, cai dat hay chat luong anh'],
+    [3, 'Tu van lai', '2-3 ngay chua thanh toan', 'Minh tu van lai goi phu hop de anh/chi khoi mua sai', 'Chuyen tu nhac tien sang tu van', 'Hoi tan suat lam anh, so kenh, co team khong; goi y Goi thang/VIP/Dung thu phu hop'],
+    [7, 'Dong vong', '7 ngay chua thanh toan', 'Anh/chi con muon giu don DG Image Tools khong?', 'Don pipeline va xin phan hoi', 'Hoi 1 cau ngan ve ly do chua thanh toan; neu chua san sang thi chuyen sang danh sach nuoi lead']
+  ]),
   ...buildEmailSequence('free', [
     [1, 'Kích hoạt', 'Vừa đăng ký free', 'Tài khoản dùng thử DG Image Tools đã sẵn sàng', 'Giao tài khoản và video bắt đầu', 'Gửi email tài khoản + video cài app/đăng nhập/tạo ảnh đầu tiên'],
     [1, 'Nhắc nhanh', 'Sau 3-6 giờ chưa đăng nhập', 'Anh/chị đã nhận được tài khoản dùng thử chưa?', 'Giảm mất khách vì không check mail', 'Zalo/SMS nhắc kiểm tra Inbox/Spam và gửi lại video nếu cần'],
@@ -221,6 +228,41 @@ const formatOrderAge = (value) => {
   if (hours < 24) return `${hours} giờ chưa thanh toán, Zalo nhắc chuyển đúng mã`;
   const days = Math.floor(hours / 24);
   return `${days} ngày chưa thanh toán, gọi/Zalo hỏi còn nhu cầu không`;
+};
+
+const getFlowLabel = (flow) => ({
+  pending: 'Don cho thanh toan',
+  free: 'Free -> tra phi',
+  paid: 'Tra phi -> ho tro/gia han'
+}[flow] || 'Free -> tra phi');
+
+const getPendingPaymentCareAction = (order) => {
+  if (!order.customerEmailSentAt) {
+    return 'Gui email/Zalo xac nhan don, ma chuyen khoan va hoi khach co can tu van goi truoc khi thanh toan khong.';
+  }
+
+  const hours = Math.max(0, Math.floor((Date.now() - new Date(order.createdAt || 0).getTime()) / 3600000));
+  if (hours < 6) return 'Nhan Zalo kiem tra khach da thay ma chuyen khoan chua; khong ep mua, mo loi tu van neu con phan van.';
+  if (hours < 24) return 'Nhac mem: don van duoc giu, chuyen khoan dung ma hoac tra loi neu can tu van goi phu hop.';
+  if (hours < 72) return 'Goi/Zalo hoi vuong o gia, cai dat hay chat luong anh; goi y dung thu neu khach chua chac.';
+  return 'Chot nhu cau: hoi con muon giu don khong, neu chua san sang thi chuyen sang nuoi lead dai han.';
+};
+
+const getEmailRecommendedAction = (email) => {
+  const used = Number(email.quotaUsed || 0);
+  const isPaid = normalizeText(email.planName).includes('thang') || normalizeText(email.planName).includes('vip') || email.status === 'paid';
+
+  if (!email.lastLoginAt) {
+    return isPaid
+      ? 'Khach tra phi chua dang nhap: goi/Zalo ngay, gui lai tai khoan va video dang nhap de tranh khach bi ket sau thanh toan.'
+      : 'Khach dung thu chua dang nhap: nhac kiem tra Inbox/Spam, gui lai tai khoan qua Zalo va yeu cau tao thu 1 anh hom nay.';
+  }
+
+  if (used <= 0) {
+    return 'Da dang nhap nhung chua tao anh: gui 3 prompt mau theo ngach va huong dan tao anh dau tien trong 5 phut.';
+  }
+
+  return email.recommendedAction || 'Theo doi tiep: hoi chat luong anh co dung y khong va goi y nang cap neu khach dung deu.';
 };
 
 const appendTextCell = (row, value, className = '') => {
@@ -475,7 +517,7 @@ const renderEmailHistory = (emails) => {
     row.append(statusCell);
     appendTextCell(row, formatDate(email.lastLoginAt));
     appendTextCell(row, `${Number(email.quotaUsed || 0)}/${Number(email.quotaTotal || 0)} ảnh`);
-    appendTextCell(row, email.recommendedAction || '-', 'prompt-cell');
+    appendTextCell(row, getEmailRecommendedAction(email), 'prompt-cell');
     appendTextCell(row, email.planName || '-');
     appendTextCell(row, formatShortDate(email.expiresAt));
     return row;
@@ -486,7 +528,7 @@ const renderEmailCenterSummary = (sequenceRows = []) => {
   const needsFollowUp = cachedEmailHistory.filter((email) => !email.lastLoginAt || Number(email.quotaUsed || 0) <= 0);
   const noLogin = cachedEmailHistory.filter((email) => !email.lastLoginAt);
   const firstCare = needsFollowUp[0] || null;
-  const flowLabel = (sequenceFlowFilter?.value || 'free') === 'free' ? 'Free -> trả phí' : 'Trả phí -> hỗ trợ/gia hạn';
+  const flowLabel = getFlowLabel(sequenceFlowFilter?.value || 'free');
 
   emailSentCount.textContent = cachedEmailHistory.length;
   emailNeedsFollowUp.textContent = needsFollowUp.length;
@@ -495,7 +537,7 @@ const renderEmailCenterSummary = (sequenceRows = []) => {
   emailSequenceFlowLabel.textContent = flowLabel;
   emailPriorityTitle.textContent = `${needsFollowUp.length} khách cần nhắc`;
   emailPriorityText.textContent = firstCare
-    ? `Ưu tiên ${firstCare.customerName || firstCare.to || firstCare.orderCode}: ${firstCare.recommendedAction || 'nhắc kiểm tra email và đăng nhập.'}`
+    ? `Uu tien ${firstCare.customerName || firstCare.to || firstCare.orderCode}: ${getEmailRecommendedAction(firstCare)}`
     : 'Không có khách bị kẹt trong lịch sử email hiện tại.';
   emailSequenceTitle.textContent = `${sequenceRows.length} bước trong chuỗi ${flowLabel}`;
   emailSequenceText.textContent = flowLabel === 'Free -> trả phí'
@@ -532,7 +574,7 @@ const renderPendingPayments = (orders) => {
     appendTextCell(row, order.transferContent || order.code || '-', 'email-cell');
     appendTextCell(row, order.planName || '-');
     appendTextCell(row, formatMoney(order.price));
-    appendTextCell(row, formatOrderAge(order.createdAt), 'prompt-cell');
+    appendTextCell(row, getPendingPaymentCareAction(order), 'prompt-cell');
     return row;
   }));
 };
@@ -540,7 +582,7 @@ const renderPendingPayments = (orders) => {
 const renderEmailSequences = () => {
   const flow = sequenceFlowFilter?.value || 'free';
   const rows = emailSequences.filter((item) => item.flow === flow);
-  const flowLabel = flow === 'free' ? 'Free -> trả phí' : 'Trả phí -> hỗ trợ/gia hạn';
+  const flowLabel = getFlowLabel(flow);
 
   if (sequenceCount) {
     sequenceCount.textContent = `${flowLabel}: ${rows.length} bước`;

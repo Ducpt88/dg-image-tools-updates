@@ -316,34 +316,35 @@ const buildCustomerEmailHtml = ({ order, password, kind }) => {
 const buildCustomerEmail = ({ order, password, kind }) => {
   const isTrial = kind === 'trial';
   const subject = isTrial
-    ? 'Tài khoản dùng thử DG Image Tools của bạn đã sẵn sàng'
-    : 'Tài khoản DG Image Tools của bạn đã được kích hoạt';
-  const lines = isTrial ? [
-    'Chúc mừng bạn đã đăng ký sử dụng gói dùng thử 0đ DG Image Tools thành công!',
+    ? 'Tai khoan dung thu DG Image Tools da san sang - tao anh dau tien hom nay'
+    : 'Tai khoan DG Image Tools da kich hoat - bat dau tao anh dau tien';
+  const greeting = `Chao ${order.customerName || 'anh/chi'},`;
+  const intro = isTrial
+    ? 'Tai khoan dung thu DG Image Tools da san sang. Viec quan trong nhat la dang nhap va tao thu 1 anh dau tien trong hom nay de xem app co hop voi nhu cau lam thumbnail cua minh khong.'
+    : 'Tai khoan DG Image Tools cua anh/chi da duoc kich hoat. Hay dang nhap ngay, tao thu 1 anh dau tien va gui lai prompt/anh mau neu can Duc toi uu giup.';
+  const nextStep = isTrial
+    ? 'Neu chua thay email, khong cai duoc app hoac chua biet test prompt nao, hay nhan lai. Duc co the gui lai thong tin qua Zalo va goi y prompt theo kenh cua anh/chi.'
+    : 'Neu anh/chi lam nhieu kenh hoac can style thumbnail on dinh hon, nhan lai ngach/kenh dang lam de duoc goi y prompt mau.';
+  const lines = [
+    greeting,
     '',
-    `Tài khoản : ${order.email}`,
-    `Mật khẩu : ${password}`,
-    `Số ảnh được tạo: ${order.quotaTotal}`,
-    `Thời gian sử dụng : ${order.expiresAt}`,
-    `Link tải: ${USER_APP_DOWNLOAD_URL}`,
-    `Link videos : ${GUIDE_VIDEO_URL}`,
+    intro,
+    '',
+    `Goi: ${order.planName}`,
+    `Tai khoan: ${order.email}`,
+    `Mat khau: ${password}`,
+    `So anh duoc tao: ${order.quotaTotal}`,
+    `Han su dung: ${order.expiresAt}`,
+    `Link tai app: ${USER_APP_DOWNLOAD_URL}`,
+    `Video huong dan: ${GUIDE_VIDEO_URL}`,
+    ...(!isTrial ? [`Nhom Zalo ho tro tra phi: ${ZALO_GROUP_URL}`] : []),
+    '',
+    nextStep,
+    '',
+    'CTA: Tai app, dang nhap va tao anh dau tien hom nay.',
     '',
     '-----DG Media Holding-----',
-    `Hãy đăng nhập app bằng email này. Nếu cần hỗ trợ tạo tài khoản hoặc cài app, nhắn trực tiếp cho Đức để được hướng dẫn nhanh ${SUPPORT_PHONE}`
-  ] : [
-    'Chúc mừng bạn đã đăng ký sử dụng DG Image Tools thành công!',
-    '',
-    `Gói: ${order.planName}`,
-    `Tài khoản : ${order.email}`,
-    `Mật khẩu : ${password}`,
-    `Số ảnh được tạo: ${order.quotaTotal}`,
-    `Thời gian sử dụng : ${order.expiresAt}`,
-    `Link tải: ${USER_APP_DOWNLOAD_URL}`,
-    `Link videos : ${GUIDE_VIDEO_URL}`,
-    `Nhóm Zalo hỗ trợ trả phí: ${ZALO_GROUP_URL}`,
-    '',
-    '-----DG Media Holding-----',
-    `Hãy đăng nhập app bằng email này. Nếu cần hỗ trợ tạo tài khoản hoặc cài app, nhắn trực tiếp cho Đức để được hướng dẫn nhanh ${SUPPORT_PHONE}`
+    `Ho tro nhanh: ${SUPPORT_PHONE}`
   ];
 
   return { subject, body: lines.join('\n'), htmlBody: buildCustomerEmailHtml({ order, password, kind }) };
