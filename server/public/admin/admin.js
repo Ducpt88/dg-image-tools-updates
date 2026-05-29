@@ -11,7 +11,6 @@ const twoFactorLink = document.querySelector('#twoFactorLink');
 const twoFactorCode = document.querySelector('#twoFactorCode');
 const verifyTwoFactorButton = document.querySelector('#verifyTwoFactor');
 const adminEmail = document.querySelector('#adminEmail');
-const emailCenterButton = document.querySelector('#emailCenterButton');
 const logoutButton = document.querySelector('#logout');
 const refreshButton = document.querySelector('#refresh');
 const createUserForm = document.querySelector('#createUser');
@@ -29,6 +28,23 @@ const statusFilter = document.querySelector('#statusFilter');
 const roleFilter = document.querySelector('#roleFilter');
 const planFilterStatus = document.querySelector('#planFilterStatus');
 const agentInsights = document.querySelector('#agentInsights');
+const statPaidRevenue = document.querySelector('#statPaidRevenue');
+const statPaidOrders = document.querySelector('#statPaidOrders');
+const statPendingOrders = document.querySelector('#statPendingOrders');
+const statPendingRevenue = document.querySelector('#statPendingRevenue');
+const statActiveLabel = document.querySelector('#statActiveLabel');
+const statAttentionUsers = document.querySelector('#statAttentionUsers');
+const statAttentionLabel = document.querySelector('#statAttentionLabel');
+const statSuccessRate = document.querySelector('#statSuccessRate');
+const statEmailCare = document.querySelector('#statEmailCare');
+const salesFocusTitle = document.querySelector('#salesFocusTitle');
+const salesFocusText = document.querySelector('#salesFocusText');
+const accountFocusTitle = document.querySelector('#accountFocusTitle');
+const accountFocusText = document.querySelector('#accountFocusText');
+const opsFocusTitle = document.querySelector('#opsFocusTitle');
+const opsFocusText = document.querySelector('#opsFocusText');
+const emailFocusTitle = document.querySelector('#emailFocusTitle');
+const emailFocusText = document.querySelector('#emailFocusText');
 const USER_API = '/api/9router/user';
 const ADMIN_API = '/api/9router/admin';
 
@@ -240,6 +256,72 @@ const getUserPlanKey = (user) => {
   if (quotaTotal <= 10 || (durationDays > 0 && durationDays <= 7)) return 'trial';
   if (quotaTotal >= 300 || deviceLimit >= 2) return 'vip';
   return 'monthly';
+};
+
+const getOperationalMetrics = () => {
+  const pendingOrders = cachedOrders.filter((order) => order.status === 'pending_payment');
+  const paidOrders = cachedOrders.filter((order) => order.status === 'paid' || order.paidAt);
+  const paidRevenue = paidOrders.reduce((total, order) => total + Number(order.price || 0), 0);
+  const pendingRevenue = pendingOrders.reduce((total, order) => total + Number(order.price || 0), 0);
+  const activeUsers = cachedUsers.filter((user) => user.status === 'active');
+  const lowQuota = cachedUsers.filter((user) => user.role !== 'admin' && Math.max(0, Number(user.quotaTotal || 0) - Number(user.quotaUsed || 0)) <= 5);
+  const expiring = cachedUsers.filter((user) => {
+    const daysLeft = getDaysLeft(user.expiresAt);
+    return user.role !== 'admin' && daysLeft !== null && daysLeft >= 0 && daysLeft <= 7;
+  });
+  const inactive = cachedUsers.filter((user) => user.role !== 'admin' && !user.activatedAt && user.status === 'active');
+  const attentionIds = new Set([...lowQuota, ...expiring, ...inactive].map((user) => user.id));
+  const successEvents = cachedEvents.filter((event) => event.ok).length;
+  const failedEvents = cachedEvents.filter((event) => !event.ok).length;
+  const totalEvents = successEvents + failedEvents;
+  const successRate = totalEvents ? Math.round((successEvents / totalEvents) * 100) : 100;
+  const emailNeedsCare = cachedEmailHistory.filter((email) => !email.lastLoginAt || Number(email.quotaUsed || 0) <= 0).length;
+
+  return {
+    pendingOrders,
+    paidOrders,
+    paidRevenue,
+    pendingRevenue,
+    activeUsers,
+    lowQuota,
+    expiring,
+    inactive,
+    attentionUsers: attentionIds.size,
+    failedEvents,
+    successRate,
+    emailNeedsCare
+  };
+};
+
+const renderDashboardSummary = () => {
+  const metrics = getOperationalMetrics();
+  const firstPending = metrics.pendingOrders[0] || null;
+
+  statPaidRevenue.textContent = formatMoney(metrics.paidRevenue);
+  statPaidOrders.textContent = `${metrics.paidOrders.length} đơn đã thanh toán`;
+  statPendingOrders.textContent = metrics.pendingOrders.length;
+  statPendingRevenue.textContent = `${formatMoney(metrics.pendingRevenue)} đang chờ`;
+  statActiveLabel.textContent = `${metrics.activeUsers.length} đang hoạt động`;
+  statAttentionUsers.textContent = metrics.attentionUsers;
+  statAttentionLabel.textContent = `${metrics.lowQuota.length} quota thấp · ${metrics.expiring.length} sắp hết hạn`;
+  statSuccessRate.textContent = `${metrics.successRate}% thành công`;
+  statEmailCare.textContent = metrics.emailNeedsCare;
+
+  salesFocusTitle.textContent = `${metrics.pendingOrders.length} đơn chờ thanh toán`;
+  salesFocusText.textContent = metrics.pendingOrders.length
+    ? `Tổng ${formatMoney(metrics.pendingRevenue)} đang chờ. Ưu tiên nhắc ${firstPending.customerName || firstPending.email || firstPending.code}.`
+    : 'Không có khách chờ thanh toán trong danh sách gần đây.';
+
+  accountFocusTitle.textContent = `${metrics.attentionUsers} tài khoản cần kiểm tra`;
+  accountFocusText.textContent = `${metrics.lowQuota.length} quota thấp, ${metrics.expiring.length} sắp hết hạn, ${metrics.inactive.length} chưa kích hoạt.`;
+
+  opsFocusTitle.textContent = `${metrics.failedEvents} lỗi trong lịch sử gần đây`;
+  opsFocusText.textContent = `Tỷ lệ render thành công ${metrics.successRate}%. Kiểm tra lỗi nếu số này giảm.`;
+
+  emailFocusTitle.textContent = `${metrics.emailNeedsCare} khách cần nhắc`;
+  emailFocusText.textContent = metrics.emailNeedsCare
+    ? 'Ưu tiên khách đã nhận email nhưng chưa đăng nhập hoặc chưa tạo ảnh đầu tiên.'
+    : 'Các khách đã nhận email không có dấu hiệu bị kẹt trong danh sách hiện tại.';
 };
 
 const updatePlanButtons = () => {
@@ -542,11 +624,11 @@ const loadDashboard = async () => {
   cachedEmailHistory = emailHistory.emails || [];
   setLoggedIn(true, currentAdmin);
   document.querySelector('#statUsers').textContent = stats.users;
-  document.querySelector('#statActive').textContent = stats.activeUsers;
-  document.querySelector('#statImages').textContent = stats.imagesCreated;
+  document.querySelector('#statImages').textContent = `${stats.imagesCreated} ảnh đã tạo`;
   document.querySelector('#statToday').textContent = stats.imagesToday;
   document.querySelector('#statFailures').textContent = stats.failures;
   document.querySelector('#lastUpdated').textContent = `Cập nhật ${new Date().toLocaleTimeString('vi-VN')}`;
+  renderDashboardSummary();
   renderUsers();
   renderEvents(cachedEvents);
   renderPendingPayments(cachedOrders);
@@ -582,8 +664,11 @@ document.querySelectorAll('.preset').forEach((button) => {
 
 sequenceFlowFilter?.addEventListener('change', renderEmailSequences);
 
-emailCenterButton?.addEventListener('click', () => {
-  document.querySelector('#emailCenter')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+document.querySelectorAll('.nav-action').forEach((button) => {
+  button.addEventListener('click', () => {
+    const target = document.querySelector(button.dataset.scrollTarget || '');
+    target?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
 });
 
 adminLogin.addEventListener('submit', async (event) => {

@@ -54,20 +54,54 @@
             </div>
           </div>
           <div class="topbar-actions">
-            <button id="emailCenterButton" class="secondary" type="button">Email</button>
+            <button class="secondary nav-action" type="button" data-scroll-target="#dashboardOverview">Tổng quan</button>
+            <button class="secondary nav-action" type="button" data-scroll-target="#pendingPayments">Đơn chờ</button>
+            <button class="secondary nav-action" type="button" data-scroll-target="#accountsPanel">Tài khoản</button>
+            <button id="emailCenterButton" class="secondary nav-action" type="button" data-scroll-target="#emailCenter">Email</button>
             <span id="lastUpdated" class="muted-text">Chưa cập nhật</span>
             <button id="refresh" class="secondary" type="button">Cập nhật</button>
             <button id="logout" class="danger" type="button">Đăng xuất</button>
           </div>
         </header>
 
-        <section class="stats-grid" aria-label="Tổng quan vận hành">
-          <article><span>Tài khoản</span><strong id="statUsers">0</strong><small>Tổng thành viên</small></article>
-          <article><span>Đang hoạt động</span><strong id="statActive">0</strong><small>Có thể sử dụng app</small></article>
-          <article><span>Ảnh đã tạo</span><strong id="statImages">0</strong><small>Render thành công</small></article>
-          <article><span>Hôm nay</span><strong id="statToday">0</strong><small>Lượt tạo ảnh trong ngày</small></article>
-          <article><span>Lỗi</span><strong id="statFailures">0</strong><small>Cần kiểm tra</small></article>
-          <article><span>Quota 9Router</span><strong id="statRouterQuota">-</strong><small id="routerQuotaSource">Đang chờ dữ liệu</small></article>
+        <section id="dashboardOverview" class="dashboard-overview">
+          <section class="stats-grid" aria-label="Tổng quan vận hành">
+            <article class="stat-card revenue"><span>Doanh thu đã ghi nhận</span><strong id="statPaidRevenue">0đ</strong><small id="statPaidOrders">0 đơn đã thanh toán</small></article>
+            <article class="stat-card attention"><span>Đơn chờ thanh toán</span><strong id="statPendingOrders">0</strong><small id="statPendingRevenue">0đ đang chờ</small></article>
+            <article class="stat-card"><span>Tài khoản</span><strong id="statUsers">0</strong><small id="statActiveLabel">0 đang hoạt động</small></article>
+            <article class="stat-card"><span>Ảnh hôm nay</span><strong id="statToday">0</strong><small id="statImages">0 ảnh đã tạo</small></article>
+            <article class="stat-card warning"><span>Cần chú ý</span><strong id="statAttentionUsers">0</strong><small id="statAttentionLabel">Quota thấp / sắp hết hạn</small></article>
+            <article class="stat-card danger"><span>Lỗi render</span><strong id="statFailures">0</strong><small id="statSuccessRate">0% thành công</small></article>
+            <article class="stat-card"><span>Email cần chăm sóc</span><strong id="statEmailCare">0</strong><small>Khách chưa đăng nhập/tạo ảnh</small></article>
+            <article class="stat-card"><span>Quota 9Router</span><strong id="statRouterQuota">-</strong><small id="routerQuotaSource">Đang chờ dữ liệu</small></article>
+          </section>
+
+          <section class="management-grid" aria-label="Mục quản lý nhanh">
+            <article class="management-card attention">
+              <span>Ưu tiên bán hàng</span>
+              <strong id="salesFocusTitle">0 đơn chờ thanh toán</strong>
+              <p id="salesFocusText">Theo dõi khách đã để lại số điện thoại nhưng chưa chuyển khoản.</p>
+              <button class="secondary nav-action" type="button" data-scroll-target="#pendingPayments">Xem đơn chờ</button>
+            </article>
+            <article class="management-card">
+              <span>Quản lý thành viên</span>
+              <strong id="accountFocusTitle">0 tài khoản cần kiểm tra</strong>
+              <p id="accountFocusText">Theo dõi quota thấp, tài khoản sắp hết hạn và tài khoản chưa kích hoạt.</p>
+              <button class="secondary nav-action" type="button" data-scroll-target="#accountsPanel">Xem tài khoản</button>
+            </article>
+            <article class="management-card danger">
+              <span>Vận hành render</span>
+              <strong id="opsFocusTitle">0 lỗi gần đây</strong>
+              <p id="opsFocusText">Kiểm tra lỗi tạo ảnh, thiết bị và prompt gây lỗi.</p>
+              <button class="secondary nav-action" type="button" data-scroll-target="#eventsPanel">Xem lịch sử</button>
+            </article>
+            <article class="management-card">
+              <span>Email & chăm sóc</span>
+              <strong id="emailFocusTitle">0 khách cần nhắc</strong>
+              <p id="emailFocusText">Theo dõi email đã gửi và khách chưa dùng app sau khi nhận tài khoản.</p>
+              <button class="secondary nav-action" type="button" data-scroll-target="#emailHistoryPanel">Xem email</button>
+            </article>
+          </section>
         </section>
 
         <section class="ops-grid">
@@ -107,7 +141,7 @@
           </aside>
         </section>
 
-        <section class="panel pending-payment-panel">
+        <section id="pendingPayments" class="panel pending-payment-panel section-anchor">
           <header class="panel-title toolbar-title">
             <div>
               <h2>Đơn chờ thanh toán</h2>
@@ -134,7 +168,7 @@
           </div>
         </section>
 
-        <section class="panel">
+        <section id="accountsPanel" class="panel section-anchor">
           <header class="panel-title toolbar-title">
             <div>
               <h2>Danh sách tài khoản</h2>
@@ -167,7 +201,7 @@
           </div>
         </section>
 
-        <section class="panel">
+        <section id="eventsPanel" class="panel section-anchor">
           <header class="panel-title">
             <div>
               <h2>Lịch sử tạo ảnh</h2>
@@ -190,7 +224,7 @@
           </div>
         </section>
 
-        <section id="emailCenter" class="panel email-center-panel">
+        <section id="emailCenter" class="panel email-center-panel section-anchor">
           <header class="panel-title toolbar-title">
             <div>
               <h2>Danh mục chuỗi email tự động</h2>
@@ -221,7 +255,7 @@
           </div>
         </section>
 
-        <section class="panel">
+        <section id="emailHistoryPanel" class="panel section-anchor">
           <header class="panel-title">
             <div>
               <h2>Lịch sử gửi email</h2>
