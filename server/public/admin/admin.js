@@ -231,10 +231,12 @@ const formatOrderAge = (value) => {
 };
 
 const getFlowLabel = (flow) => ({
-  pending: 'Don cho thanh toan',
-  free: 'Free -> tra phi',
-  paid: 'Tra phi -> ho tro/gia han'
-}[flow] || 'Free -> tra phi');
+  pending: 'Workflow don cho thanh toan',
+  trial: 'Workflow thanh vien dung thu',
+  free: 'Workflow thanh vien dung thu',
+  paid: 'Workflow thanh vien tra phi',
+  renewal: 'Workflow gia han va winback'
+}[flow] || 'Workflow thanh vien dung thu');
 
 const getPendingPaymentCareAction = (order) => {
   if (!order.customerEmailSentAt) {
@@ -524,11 +526,35 @@ const renderEmailHistory = (emails) => {
   }));
 };
 
+const getEmailWorkflowRows = (flow) => {
+  if (flow === 'trial') {
+    return emailSequences.filter((item) => item.flow === 'free');
+  }
+
+  if (flow === 'paid') {
+    return emailSequences.filter((item) => item.flow === 'paid' && Number(item.day || 0) < 24);
+  }
+
+  if (flow === 'renewal') {
+    return emailSequences.filter((item) => item.flow === 'paid' && Number(item.day || 0) >= 24);
+  }
+
+  return emailSequences.filter((item) => item.flow === flow);
+};
+
+const getWorkflowDescription = (flow) => ({
+  pending: 'Workflow xu ly lead da de lai thong tin nhung chua thanh toan: xac nhan, nhac mem, tu van lai, dong vong.',
+  trial: 'Workflow thanh vien dung thu: dua khach dang nhap, tao anh dau tien, trai nghiem gia tri va nang cap len tra phi.',
+  paid: 'Workflow thanh vien tra phi: dam bao khach bat dau dung duoc, tao anh dau tien, duoc ho tro prompt va dung app deu.',
+  renewal: 'Workflow gia han/winback: nhac het han, goi y nang VIP, cuu khach dung it va kich hoat lai khach cu.'
+}[flow] || 'Workflow cham soc thanh vien theo trang thai su dung.');
+
 const renderEmailCenterSummary = (sequenceRows = []) => {
   const needsFollowUp = cachedEmailHistory.filter((email) => !email.lastLoginAt || Number(email.quotaUsed || 0) <= 0);
   const noLogin = cachedEmailHistory.filter((email) => !email.lastLoginAt);
   const firstCare = needsFollowUp[0] || null;
-  const flowLabel = getFlowLabel(sequenceFlowFilter?.value || 'free');
+  const flow = sequenceFlowFilter?.value || 'pending';
+  const flowLabel = getFlowLabel(flow);
 
   emailSentCount.textContent = cachedEmailHistory.length;
   emailNeedsFollowUp.textContent = needsFollowUp.length;
@@ -540,9 +566,7 @@ const renderEmailCenterSummary = (sequenceRows = []) => {
     ? `Uu tien ${firstCare.customerName || firstCare.to || firstCare.orderCode}: ${getEmailRecommendedAction(firstCare)}`
     : 'Không có khách bị kẹt trong lịch sử email hiện tại.';
   emailSequenceTitle.textContent = `${sequenceRows.length} bước trong chuỗi ${flowLabel}`;
-  emailSequenceText.textContent = flowLabel === 'Free -> trả phí'
-    ? 'Luồng nuôi lead dùng thử, nhắc dùng app và bán lên gói trả phí.'
-    : 'Luồng chăm sóc khách đã trả phí, hỗ trợ dùng app và nhắc gia hạn.';
+  emailSequenceText.textContent = getWorkflowDescription(flow);
 };
 
 const renderPendingPayments = (orders) => {
@@ -580,8 +604,8 @@ const renderPendingPayments = (orders) => {
 };
 
 const renderEmailSequences = () => {
-  const flow = sequenceFlowFilter?.value || 'free';
-  const rows = emailSequences.filter((item) => item.flow === flow);
+  const flow = sequenceFlowFilter?.value || 'pending';
+  const rows = getEmailWorkflowRows(flow);
   const flowLabel = getFlowLabel(flow);
 
   if (sequenceCount) {

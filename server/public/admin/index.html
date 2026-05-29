@@ -236,7 +236,7 @@
               <p>Quản lý riêng toàn bộ hệ thống email: chuỗi chăm sóc tự động, lịch sử gửi, khách bị kẹt và việc cần nhắc lại.</p>
             </div>
             <div class="workspace-actions">
-              <button class="secondary nav-action" type="button" data-scroll-target="#emailSequencePanel">Chuỗi email</button>
+              <button class="secondary nav-action" type="button" data-scroll-target="#emailSequencePanel">Workflow email</button>
               <button class="secondary nav-action" type="button" data-scroll-target="#emailHistoryPanel">Lịch sử gửi</button>
             </div>
           </header>
@@ -244,7 +244,7 @@
           <section class="email-summary-grid" aria-label="Tổng quan hệ thống email">
             <article class="email-summary-card"><span>Email đã gửi</span><strong id="emailSentCount">0</strong><small>Tổng email tài khoản đã ghi nhận</small></article>
             <article class="email-summary-card warning"><span>Cần nhắc lại</span><strong id="emailNeedsFollowUp">0</strong><small>Chưa đăng nhập hoặc chưa tạo ảnh</small></article>
-            <article class="email-summary-card"><span>Chuỗi đang xem</span><strong id="emailSequenceStepCount">0</strong><small id="emailSequenceFlowLabel">Free -> trả phí</small></article>
+            <article class="email-summary-card"><span>Workflow dang xem</span><strong id="emailSequenceStepCount">0</strong><small id="emailSequenceFlowLabel">Workflow theo khau</small></article>
             <article class="email-summary-card danger"><span>Khách chưa đăng nhập</span><strong id="emailNoLoginCount">0</strong><small>Ưu tiên gọi/Zalo kiểm tra inbox</small></article>
           </section>
 
@@ -257,21 +257,22 @@
             <article class="email-action-card">
               <span>Quy trình email</span>
               <strong id="emailSequenceTitle">0 bước trong chuỗi</strong>
-              <p id="emailSequenceText">Chọn luồng Free hoặc Trả phí để xem lịch chăm sóc.</p>
+              <p id="emailSequenceText">Chon workflow theo khau khach hang/thanh vien de xem viec can lam.</p>
             </article>
           </section>
 
           <section id="emailSequencePanel" class="panel email-center-panel section-anchor">
           <header class="panel-title toolbar-title">
             <div>
-              <h2>Danh mục chuỗi email tự động</h2>
-              <p>Lịch chăm sóc ngày 1-30 và các mốc dài hơn cho luồng Free bán lên trả phí hoặc luồng Trả phí hỗ trợ/gia hạn.</p>
+              <h2>Workflow kich ban email</h2>
+              <p>Moi workflow la mot luong cham soc rieng theo trang thai: don cho thanh toan, thanh vien dung thu, thanh vien tra phi va gia han/winback.</p>
             </div>
             <div class="table-tools sequence-tools">
               <select id="sequenceFlowFilter">
-                
-                <option value="pending">Don cho thanh toan</option><option value="free">Free -> trả phí</option>
-                <option value="paid">Trả phí -> hỗ trợ/gia hạn</option>
+                <option value="pending">Don cho thanh toan</option>
+                <option value="trial">Thanh vien dung thu</option>
+                <option value="paid">Thanh vien tra phi</option>
+                <option value="renewal">Gia han / winback</option>
               </select>
               <span id="sequenceCount" class="muted-text"></span>
             </div>
