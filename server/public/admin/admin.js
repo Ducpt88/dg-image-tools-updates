@@ -11,12 +11,15 @@ const twoFactorLink = document.querySelector('#twoFactorLink');
 const twoFactorCode = document.querySelector('#twoFactorCode');
 const verifyTwoFactorButton = document.querySelector('#verifyTwoFactor');
 const adminEmail = document.querySelector('#adminEmail');
+const emailCenterButton = document.querySelector('#emailCenterButton');
 const logoutButton = document.querySelector('#logout');
 const refreshButton = document.querySelector('#refresh');
 const createUserForm = document.querySelector('#createUser');
 const createStatus = document.querySelector('#createStatus');
 const usersBody = document.querySelector('#usersBody');
 const eventsBody = document.querySelector('#eventsBody');
+const pendingPaymentsBody = document.querySelector('#pendingPaymentsBody');
+const pendingPaymentCount = document.querySelector('#pendingPaymentCount');
 const emailHistoryBody = document.querySelector('#emailHistoryBody');
 const sequenceFlowFilter = document.querySelector('#sequenceFlowFilter');
 const sequenceBody = document.querySelector('#sequenceBody');
@@ -33,6 +36,7 @@ let token = localStorage.getItem('adminToken') || '';
 let currentAdmin = null;
 let cachedUsers = [];
 let cachedEvents = [];
+let cachedOrders = [];
 let cachedEmailHistory = [];
 let activePlanFilter = 'all';
 let pendingTwoFactor = null;
@@ -56,74 +60,74 @@ const buildEmailSequence = (flow, rows) => rows.map(([day, stage, trigger, subje
 
 const emailSequences = [
   ...buildEmailSequence('free', [
-    [1, 'Kich hoat', 'Vua dang ky free', 'Tai khoan dung thu DG Image Tools da san sang', 'Giao tai khoan va video bat dau', 'Gui email tai khoan + video cai app/dang nhap/tao anh dau tien'],
-    [1, 'Nhac nhanh', 'Sau 3-6 gio chua dang nhap', 'Anh/chi da nhan duoc tai khoan dung thu chua?', 'Giam mat khach vi khong check mail', 'Zalo/SMS nhac kiem tra Inbox/Spam va gui lai video neu can'],
-    [2, 'Onboarding', 'Chua dang nhap hoac quotaUsed = 0', 'Video 2 phut: tao anh dau tien bang DG Image Tools', 'Day khach tao anh dau tien', 'Gui video tao anh dau tien + 3 prompt mau de copy'],
-    [3, 'Gia tri', 'Da tao 1-2 anh', 'Cach tao 5 bien the thumbnail de chon anh tot nhat', 'Tang trai nghiem dung thu', 'Gui meo tao bien the, sua prompt va luu mau tot'],
-    [4, 'Xu ly ket', 'Chua dung app', 'Can em ho tro cai app hoac dang nhap lan dau khong?', 'Mo loi ho tro truc tiep', 'Zalo hoi kho khan, de nghi remote/call ngan neu can'],
-    [5, 'Ban duoi mem', 'Da dung tu 3 anh tro len', 'Neu lam thumbnail deu, goi thang se tiet kiem thoi gian hon', 'Mo nhu cau nang cap', 'Gioi thieu goi thang 100 anh va loi ich lam deu hang tuan'],
-    [6, 'Case use', 'Dang con trial', 'Mot quy trinh tao thumbnail nhanh cho kenh YouTube', 'Gan app vao cong viec hang ngay', 'Gui workflow: y tuong -> prompt -> bien the -> chon anh -> toi uu'],
-    [7, 'Chot trial', 'Trial sap het hoac da het', 'Dung thu sap ket thuc, nang cap de dung tiep quota', 'Chot len tra phi', 'Gui loi moi nang cap goi thang/VIP + nhac tai khoan van duoc giu'],
-    [8, 'Hoi ly do', 'Chua mua', 'Anh/chi thay DG Image Tools con vuong diem nao?', 'Thu feedback va cuu deal', 'Hoi 1 cau ngan: gia, cai dat, chat luong anh hay nhu cau khac'],
-    [9, 'Gia tri nang cao', 'Da tao anh nhung chua mua', 'Meo lam anh on dinh hon: prompt mau theo ngach', 'Tang niem tin truoc khi ban', 'Gui prompt mau cho tai chinh, review, giao duc, drama, podcast'],
-    [10, 'Offer', 'Da dung nhieu nhung chua mua', 'Mo khoa them quota de tiep tuc tao anh', 'Chot goi thang', 'Gui offer goi thang, nhan man 100 anh/thang va ho tro setup'],
-    [11, 'Ho tro', 'Chua dang nhap', 'Em co the gui lai thong tin dang nhap qua Zalo', 'Xu ly khach khong check email', 'Gui lai tai khoan qua Zalo/SMS neu co so dien thoai'],
-    [12, 'So sanh', 'Da tao 1-5 anh', 'Khi nao nen dung goi thang thay vi dung thu?', 'Lam ro ly do tra phi', 'So sanh quota, toc do lam viec, ho tro va dung on dinh hang ngay'],
-    [13, 'Bang chung', 'Chua mua', 'Cach dung app de tao anh cho 1 video moi trong 10 phut', 'Bien loi ich thanh tinh huong cu the', 'Gui mini case workflow tao thumbnail cho 1 video'],
-    [14, 'Chot 2', 'Chua mua', 'Can them quota hay can ho tro tao mau anh tot hon?', 'Chot bang ho tro', 'Moi nang cap hoac hen ho tro toi uu prompt'],
-    [15, 'Tai kich hoat', 'Im lang', 'Anh/chi co muon em giu tai khoan dung thu them khong?', 'Keo phan hoi', 'Hoi co muon gia han trial ngan neu thuc su can test tiep'],
-    [16, 'Noi dau', 'Khach lam YouTube/marketing', 'Dung app de giam thoi gian lam anh moi ngay', 'Danh vao loi ich tiet kiem thoi gian', 'Gui noi dung ve rut ngan viec len y tuong va tao bien the'],
-    [17, 'Prompt', 'Da dang nhap', '5 prompt mau de test lai DG Image Tools', 'Keo khach quay lai app', 'Gui 5 prompt copy nhanh va yeu cau tao thu 3 anh'],
-    [18, 'Xu ly phan van', 'Chua mua', 'Neu anh/chi chi can lam it anh thi nen chon goi nao?', 'Giam can tro ve gia', 'Goi y goi thang cho ca nhan, VIP cho team/nhieu kenh'],
-    [19, 'Ho tro 1-1', 'Da tao anh nhung chat luong chua tot', 'Gui em 1 anh mau, em goi y prompt toi uu', 'Tang ty le thanh cong', 'Moi khach gui anh mau/chu de de tu van prompt'],
-    [20, 'Chot nhe', 'Chua mua', 'Tai khoan cua anh/chi van co the nang cap de dung tiep', 'Nhac mua khong gay ap luc', 'Nhac tai khoan da co san, thanh toan xong la dung tiep'],
-    [21, 'Tong ket', 'Het trial 2 tuan', 'Tong ket dung thu DG Image Tools', 'Ket thuc dot cham soc 1', 'Tom tat loi ich, hoi feedback, CTA nang cap'],
-    [22, 'Reactivation', 'Khong hoat dong', 'Anh/chi muon nhan bo prompt moi mien phi khong?', 'Lay lai tuong tac', 'Gui bo prompt mau neu khach phan hoi'],
-    [23, 'Niche', 'Co thong tin ngach', 'Prompt rieng cho ngach cua anh/chi', 'Ca nhan hoa', 'Gui prompt theo ngach hoac hoi them ngach neu chua co'],
-    [24, 'FAQ', 'Chua mua', 'Cau hoi thuong gap truoc khi nang cap', 'Giai dap can tro', 'Tra loi ve quota, thiet bi, thanh toan, ho tro, het han'],
-    [25, 'Uu tien', 'Da dung kha nhieu', 'Nen nang goi neu anh/chi tao anh deu moi tuan', 'Chot nhom co y dinh cao', 'Gui goi y mua goi thang/VIP theo tan suat dung'],
-    [26, 'Gia tri', 'Chua mua', 'Dung thumbnail tot de test nhieu y tuong video hon', 'Noi ve dau ra kinh doanh', 'Lien he anh tot voi CTR/y tuong video, khong hua qua muc'],
-    [27, 'Hoi nhu cau', 'Im lang', 'Anh/chi dang can tao loai anh nao nhat?', 'Phan loai lead', 'Hoi nhu cau: YouTube, ads, san pham, giao duc, khac'],
-    [28, 'Chot cuoi', 'Chua mua', 'Lan nhac cuoi ve goi dung tiep DG Image Tools', 'Ket thuc ban duoi chinh', 'CTA ro rang nang cap hoac de lai nhu cau ho tro'],
-    [29, 'Nurture', 'Khong mua', 'Em se gui meo tao anh moi khi co cap nhat hay', 'Giu lead dai han', 'Chuyen sang danh sach noi dung thang'],
-    [30, 'Dong vong', 'Khong mua sau 30 ngay', 'Can em mo lai trial khi anh/chi san sang test tiep khong?', 'Dong vong 30 ngay', 'Hoi xin phep lien he lai khi co mau/video moi'],
-    [45, 'Tai kich hoat', 'Lead cu', 'DG Image Tools co them workflow/prompt moi cho anh/chi', 'Mo lai co hoi ban', 'Gui cap nhat moi + moi test lai neu phu hop'],
-    [60, 'Re-offer', 'Lead cu co tuong tac', 'Muon dung lai DG Image Tools voi goi thang khong?', 'Ban lai lead cu', 'Gui offer ngan + ho tro setup lai']
+    [1, 'Kích hoạt', 'Vừa đăng ký free', 'Tài khoản dùng thử DG Image Tools đã sẵn sàng', 'Giao tài khoản và video bắt đầu', 'Gửi email tài khoản + video cài app/đăng nhập/tạo ảnh đầu tiên'],
+    [1, 'Nhắc nhanh', 'Sau 3-6 giờ chưa đăng nhập', 'Anh/chị đã nhận được tài khoản dùng thử chưa?', 'Giảm mất khách vì không check mail', 'Zalo/SMS nhắc kiểm tra Inbox/Spam và gửi lại video nếu cần'],
+    [2, 'Onboarding', 'Chưa đăng nhập hoặc quotaUsed = 0', 'Video 2 phút: tạo ảnh đầu tiên bằng DG Image Tools', 'Đẩy khách tạo ảnh đầu tiên', 'Gửi video tạo ảnh đầu tiên + 3 prompt mẫu để copy'],
+    [3, 'Giá trị', 'Đã tạo 1-2 ảnh', 'Cách tạo 5 biến thể thumbnail để chọn ảnh tốt nhất', 'Tăng trải nghiệm dùng thử', 'Gửi mẹo tạo biến thể, sửa prompt và lưu mẫu tốt'],
+    [4, 'Xử lý kẹt', 'Chưa dùng app', 'Cần em hỗ trợ cài app hoặc đăng nhập lần đầu không?', 'Mở lời hỗ trợ trực tiếp', 'Zalo hỏi khó khăn, đề nghị remote/call ngắn nếu cần'],
+    [5, 'Bán đuổi mềm', 'Đã dùng từ 3 ảnh trở lên', 'Nếu làm thumbnail đều, gói tháng sẽ tiết kiệm thời gian hơn', 'Mở nhu cầu nâng cấp', 'Giới thiệu gói tháng 100 ảnh và lợi ích làm đều hằng tuần'],
+    [6, 'Case use', 'Đang còn trial', 'Một quy trình tạo thumbnail nhanh cho kênh YouTube', 'Gắn app vào công việc hằng ngày', 'Gửi workflow: ý tưởng -> prompt -> biến thể -> chọn ảnh -> tối ưu'],
+    [7, 'Chốt trial', 'Trial sắp hết hoặc đã hết', 'Dùng thử sắp kết thúc, nâng cấp để dùng tiếp quota', 'Chốt lên trả phí', 'Gửi lời mời nâng cấp gói tháng/VIP + nhắc tài khoản vẫn được giữ'],
+    [8, 'Hỏi lý do', 'Chưa mua', 'Anh/chị thấy DG Image Tools còn vướng điểm nào?', 'Thu feedback và cứu deal', 'Hỏi 1 câu ngắn: giá, cài đặt, chất lượng ảnh hay nhu cầu khác'],
+    [9, 'Giá trị nâng cao', 'Đã tạo ảnh nhưng chưa mua', 'Mẹo làm ảnh ổn định hơn: prompt mẫu theo ngách', 'Tăng niềm tin trước khi bán', 'Gửi prompt mẫu cho tài chính, review, giáo dục, drama, podcast'],
+    [10, 'Offer', 'Đã dùng nhiều nhưng chưa mua', 'Mở khóa thêm quota để tiếp tục tạo ảnh', 'Chốt gói tháng', 'Gửi offer gói tháng, nhấn mạnh 100 ảnh/tháng và hỗ trợ setup'],
+    [11, 'Hỗ trợ', 'Chưa đăng nhập', 'Em có thể gửi lại thông tin đăng nhập qua Zalo', 'Xử lý khách không check email', 'Gửi lại tài khoản qua Zalo/SMS nếu có số điện thoại'],
+    [12, 'So sánh', 'Đã tạo 1-5 ảnh', 'Khi nào nên dùng gói tháng thay vì dùng thử?', 'Làm rõ lý do trả phí', 'So sánh quota, tốc độ làm việc, hỗ trợ và dùng ổn định hằng ngày'],
+    [13, 'Bằng chứng', 'Chưa mua', 'Cách dùng app để tạo ảnh cho 1 video mới trong 10 phút', 'Biến lợi ích thành tình huống cụ thể', 'Gửi mini case workflow tạo thumbnail cho 1 video'],
+    [14, 'Chốt 2', 'Chưa mua', 'Cần thêm quota hay cần hỗ trợ tạo mẫu ảnh tốt hơn?', 'Chốt bằng hỗ trợ', 'Mời nâng cấp hoặc hẹn hỗ trợ tối ưu prompt'],
+    [15, 'Tái kích hoạt', 'Im lặng', 'Anh/chị có muốn em giữ tài khoản dùng thử thêm không?', 'Kéo phản hồi', 'Hỏi có muốn gia hạn trial ngắn nếu thực sự cần test tiếp'],
+    [16, 'Nỗi đau', 'Khách làm YouTube/marketing', 'Dùng app để giảm thời gian làm ảnh mỗi ngày', 'Đánh vào lợi ích tiết kiệm thời gian', 'Gửi nội dung về rút ngắn việc lên ý tưởng và tạo biến thể'],
+    [17, 'Prompt', 'Đã đăng nhập', '5 prompt mẫu để test lại DG Image Tools', 'Kéo khách quay lại app', 'Gửi 5 prompt copy nhanh và yêu cầu tạo thử 3 ảnh'],
+    [18, 'Xử lý phân vân', 'Chưa mua', 'Nếu anh/chị chỉ cần làm ít ảnh thì nên chọn gói nào?', 'Giảm cản trở về giá', 'Gợi ý gói tháng cho cá nhân, VIP cho team/nhiều kênh'],
+    [19, 'Hỗ trợ 1-1', 'Đã tạo ảnh nhưng chất lượng chưa tốt', 'Gửi em 1 ảnh mẫu, em gợi ý prompt tối ưu', 'Tăng tỷ lệ thành công', 'Mời khách gửi ảnh mẫu/chủ đề để tư vấn prompt'],
+    [20, 'Chốt nhẹ', 'Chưa mua', 'Tài khoản của anh/chị vẫn có thể nâng cấp để dùng tiếp', 'Nhắc mua không gây áp lực', 'Nhắc tài khoản đã có sẵn, thanh toán xong là dùng tiếp'],
+    [21, 'Tổng kết', 'Hết trial 2 tuần', 'Tổng kết dùng thử DG Image Tools', 'Kết thúc đợt chăm sóc 1', 'Tóm tắt lợi ích, hỏi feedback, CTA nâng cấp'],
+    [22, 'Reactivation', 'Không hoạt động', 'Anh/chị muốn nhận bộ prompt mới miễn phí không?', 'Lấy lại tương tác', 'Gửi bộ prompt mẫu nếu khách phản hồi'],
+    [23, 'Niche', 'Có thông tin ngách', 'Prompt riêng cho ngách của anh/chị', 'Cá nhân hóa', 'Gửi prompt theo ngách hoặc hỏi thêm ngách nếu chưa có'],
+    [24, 'FAQ', 'Chưa mua', 'Câu hỏi thường gặp trước khi nâng cấp', 'Giải đáp cản trở', 'Trả lời về quota, thiết bị, thanh toán, hỗ trợ, hết hạn'],
+    [25, 'Ưu tiên', 'Đã dùng khá nhiều', 'Nên nâng gói nếu anh/chị tạo ảnh đều mỗi tuần', 'Chốt nhóm có ý định cao', 'Gửi gợi ý mua gói tháng/VIP theo tần suất dùng'],
+    [26, 'Giá trị', 'Chưa mua', 'Dùng thumbnail tốt để test nhiều ý tưởng video hơn', 'Nói về đầu ra kinh doanh', 'Liên hệ ảnh tốt với CTR/ý tưởng video, không hứa quá mức'],
+    [27, 'Hỏi nhu cầu', 'Im lặng', 'Anh/chị đang cần tạo loại ảnh nào nhất?', 'Phân loại lead', 'Hỏi nhu cầu: YouTube, ads, sản phẩm, giáo dục, khác'],
+    [28, 'Chốt cuối', 'Chưa mua', 'Lần nhắc cuối về gói dùng tiếp DG Image Tools', 'Kết thúc bán đuổi chính', 'CTA rõ ràng nâng cấp hoặc để lại nhu cầu hỗ trợ'],
+    [29, 'Nurture', 'Không mua', 'Em sẽ gửi mẹo tạo ảnh mới khi có cập nhật hay', 'Giữ lead dài hạn', 'Chuyển sang danh sách nội dung tháng'],
+    [30, 'Đóng vòng', 'Không mua sau 30 ngày', 'Cần em mở lại trial khi anh/chị sẵn sàng test tiếp không?', 'Đóng vòng 30 ngày', 'Hỏi xin phép liên hệ lại khi có mẫu/video mới'],
+    [45, 'Tái kích hoạt', 'Lead cũ', 'DG Image Tools có thêm workflow/prompt mới cho anh/chị', 'Mở lại cơ hội bán', 'Gửi cập nhật mới + mời test lại nếu phù hợp'],
+    [60, 'Re-offer', 'Lead cũ có tương tác', 'Muốn dùng lại DG Image Tools với gói tháng không?', 'Bán lại lead cũ', 'Gửi offer ngắn + hỗ trợ setup lại']
   ]),
   ...buildEmailSequence('paid', [
-    [1, 'Kich hoat', 'Vua thanh toan', 'Tai khoan DG Image Tools cua anh/chi da duoc kich hoat', 'Giao tai khoan va dam bao bat dau dung', 'Gui tai khoan + video cai app/dang nhap/tao anh dau tien + checklist'],
-    [1, 'Nhac nhanh', 'Sau 3-6 gio chua dang nhap', 'Em gui lai video huong dan dang nhap DG Image Tools', 'Khong de khach tra phi bi ket', 'Zalo/SMS nhac check email/spam, de nghi gui lai thong tin'],
-    [2, 'Onboarding', 'Da dang nhap nhung quotaUsed = 0', 'Video: tao anh dau tien va luu ket qua', 'Day khach tao anh dau tien', 'Gui video tao anh dau tien + prompt mau theo ngach'],
-    [3, 'Toi uu', 'Da tao anh', 'Cach viet prompt de anh dep va dung y hon', 'Tang chat luong dau ra', 'Gui video prompt nang cao + 5 loi thuong gap'],
-    [4, 'Ho tro', 'Dung it hoac loi', 'Anh/chi co can em xem giup prompt/anh mau khong?', 'Giam bo cuoc som', 'Moi gui anh mau/chu de de tu van nhanh'],
-    [5, 'Workflow', 'Da tao 3+ anh', 'Quy trinh tao 5-10 bien the thumbnail moi ngay', 'Dua app vao cong viec lap lai', 'Gui workflow tao bien the, chon anh, sua prompt, luu mau'],
-    [6, 'Niche', 'Co note/ngach', 'Prompt toi uu theo ngach cua anh/chi', 'Ca nhan hoa', 'Gui prompt theo ngach hoac hoi them ngach'],
-    [7, 'Kiem tra 1 tuan', 'Sau 7 ngay', 'Sau 1 tuan dung DG Image Tools, anh/chi can toi uu diem nao?', 'Lay feedback va giam churn', 'Hoi 1 cau ngan, de nghi ho tro neu quotaUsed thap'],
-    [8, 'Meo nang cao', 'Dang dung binh thuong', 'Meo tao anh on dinh hon giua cac lan render', 'Tang hieu qua cong viec', 'Gui cach co dinh style, bo cuc, mau sac, chu, nhan vat'],
-    [9, 'Luu prompt', 'Da tao nhieu anh', 'Nen luu lai prompt thang de tai su dung', 'Giup khach lam nhanh hon', 'Huong dan tao thu vien prompt ca nhan theo ngach'],
-    [10, 'Kiem tra quota', 'QuotaUsed thap', 'Anh/chi chua dung nhieu, co can em ho tro setup workflow?', 'Cuu khach dung it', 'Zalo chu dong hoi va de nghi call 10 phut'],
-    [11, 'Kiem tra quota', 'QuotaUsed cao', 'Anh/chi dang dung tot, co can them quota/VIP khong?', 'Mo upsell VIP', 'Goi y VIP neu gan het quota hoac dung nhieu kenh'],
-    [12, 'Case use', 'Dang dung', 'Mau workflow cho 1 video YouTube moi', 'Tang gia tri su dung', 'Gui quy trinh tu tieu de video den 5 mau thumbnail'],
-    [13, 'Chat luong', 'Co loi render hoac ket qua kem', 'Cach sua prompt khi anh chua dung y', 'Giam that vong ve chat luong', 'Gui checklist sua prompt: bo cuc, doi tuong, cam xuc, nen, chu'],
-    [14, 'Tong ket 2 tuan', 'Sau 14 ngay', 'Kiem tra nhanh hieu qua DG Image Tools cua anh/chi', 'Danh gia su dung nua thang', 'Neu dung it thi ho tro; neu dung tot thi goi y workflow nang cao'],
-    [15, 'Dao tao', 'Dang dung', 'Video nang cao: tao anh theo style rieng', 'Tang su phu thuoc vao workflow', 'Gui video/style guide va cach tao prompt mau'],
-    [16, 'Thiet bi', 'Co nhieu thiet bi/team', 'Cach quan ly thiet bi va quota cho team', 'Ho tro team/VIP', 'Huong dan device limit, khi nao can nang VIP'],
-    [17, 'Nang suat', 'Da dung 10+ anh', 'Cach tao lo anh hang loat ma van giu style', 'Tang san luong', 'Gui meo batch prompt, dat ten file, luu mau tot'],
-    [18, 'Cham soc', 'Khong hoat dong 5 ngay', 'Anh/chi co dang bi ket o buoc nao khong?', 'Keo quay lai', 'Zalo hoi truc tiep, gui lai video phu hop'],
-    [19, 'Toi uu CTR', 'YouTube', '3 cach test thumbnail cho cung mot video', 'Lien he app voi ket qua cong viec', 'Gui cach tao 3 concept: cam xuc, so sanh, cau hoi'],
-    [20, 'Kiem tra quota', 'Gan het quota', 'Tai khoan cua anh/chi sap het quota tao anh', 'Upsell quota/VIP', 'Goi y nang VIP hoac mua them quota neu co chinh sach'],
-    [21, 'Tong ket 3 tuan', 'Sau 21 ngay', '3 tuan su dung: co nen toi uu lai workflow khong?', 'Giam roi bo truoc gia han', 'Hoi feedback, de nghi xem prompt/anh mau'],
-    [22, 'Meo', 'Dang dung', 'Bo prompt mau cho anh san pham/marketing', 'Mo rong use case', 'Gui prompt marketing neu phu hop, neu khong gui prompt YouTube'],
-    [23, 'Bao tri', 'Co loi gan day', 'Neu app bao loi, hay gui em anh man hinh nay', 'Giam friction ho tro', 'Huong dan gui loi: email, thoi gian, anh man hinh, prompt'],
-    [24, 'Gia han som', 'Con 6 ngay het han', 'Tai khoan con khoang 1 tuan, anh/chi co muon gia han som khong?', 'Mo dau gia han', 'Nhac gia han som neu dang dung tot; neu dung it thi de nghi ho tro'],
-    [25, 'Gia han', 'Con 5 ngay het han', 'Gia han DG Image Tools de khong gian doan cong viec', 'Gia han', 'Gui thong tin gia han + loi ich tiep tuc workflow'],
-    [26, 'Gia han/upsell', 'Dung nhieu', 'Anh/chi co nen len VIP thang toi khong?', 'Upsell VIP', 'So sanh goi thang va VIP theo quota/thiet bi/team'],
-    [27, 'Hoi van de', 'Dung it', 'Neu thang nay anh/chi dung it, em co the ho tro toi uu lai', 'Cuu gia han', 'Hoi ly do dung it va de nghi setup workflow moi'],
-    [28, 'Nhac het han', 'Con 2 ngay het han', 'Tai khoan sap het han sau 2 ngay', 'Gia han ro rang', 'Gui CTA gia han, nhac khong gian doan quota/cong viec'],
-    [29, 'Nhac cuoi', 'Con 1 ngay het han', 'Ngay mai tai khoan DG Image Tools se het han', 'Chot gia han', 'Gui nhac cuoi + kenh thanh toan/ho tro'],
-    [30, 'Het han', 'Het han/chua gia han', 'Tai khoan da het han, gia han de dung tiep', 'Khoi phuc', 'Gui loi moi gia han, neu dung it thi de nghi ho tro truoc khi gia han'],
-    [45, 'Winback', 'Khach het han 15 ngay', 'Anh/chi co muon kich hoat lai DG Image Tools khong?', 'Lay lai khach cu', 'Gui cap nhat moi + moi gia han lai'],
-    [60, 'Winback', 'Khach cu im lang', 'DG Image Tools co them workflow moi de tao anh nhanh hon', 'Winback dai han', 'Gui video/cap nhat moi + offer ho tro setup lai']
+    [1, 'Kích hoạt', 'Vừa thanh toán', 'Tài khoản DG Image Tools của anh/chị đã được kích hoạt', 'Giao tài khoản và đảm bảo bắt đầu dùng', 'Gửi tài khoản + video cài app/đăng nhập/tạo ảnh đầu tiên + checklist'],
+    [1, 'Nhắc nhanh', 'Sau 3-6 giờ chưa đăng nhập', 'Em gửi lại video hướng dẫn đăng nhập DG Image Tools', 'Không để khách trả phí bị kẹt', 'Zalo/SMS nhắc check email/spam, đề nghị gửi lại thông tin'],
+    [2, 'Onboarding', 'Đã đăng nhập nhưng quotaUsed = 0', 'Video: tạo ảnh đầu tiên và lưu kết quả', 'Đẩy khách tạo ảnh đầu tiên', 'Gửi video tạo ảnh đầu tiên + prompt mẫu theo ngách'],
+    [3, 'Tối ưu', 'Đã tạo ảnh', 'Cách viết prompt để ảnh đẹp và đúng ý hơn', 'Tăng chất lượng đầu ra', 'Gửi video prompt nâng cao + 5 lỗi thường gặp'],
+    [4, 'Hỗ trợ', 'Dùng ít hoặc lỗi', 'Anh/chị có cần em xem giúp prompt/ảnh mẫu không?', 'Giảm bỏ cuộc sớm', 'Mời gửi ảnh mẫu/chủ đề để tư vấn nhanh'],
+    [5, 'Workflow', 'Đã tạo 3+ ảnh', 'Quy trình tạo 5-10 biến thể thumbnail mỗi ngày', 'Đưa app vào công việc lặp lại', 'Gửi workflow tạo biến thể, chọn ảnh, sửa prompt, lưu mẫu'],
+    [6, 'Niche', 'Có note/ngách', 'Prompt tối ưu theo ngách của anh/chị', 'Cá nhân hóa', 'Gửi prompt theo ngách hoặc hỏi thêm ngách'],
+    [7, 'Kiểm tra 1 tuần', 'Sau 7 ngày', 'Sau 1 tuần dùng DG Image Tools, anh/chị cần tối ưu điểm nào?', 'Lấy feedback và giảm churn', 'Hỏi 1 câu ngắn, đề nghị hỗ trợ nếu quotaUsed thấp'],
+    [8, 'Mẹo nâng cao', 'Đang dùng bình thường', 'Mẹo tạo ảnh ổn định hơn giữa các lần render', 'Tăng hiệu quả công việc', 'Gửi cách cố định style, bố cục, màu sắc, chữ, nhân vật'],
+    [9, 'Lưu prompt', 'Đã tạo nhiều ảnh', 'Nên lưu lại prompt thắng để tái sử dụng', 'Giúp khách làm nhanh hơn', 'Hướng dẫn tạo thư viện prompt cá nhân theo ngách'],
+    [10, 'Kiểm tra quota', 'QuotaUsed thấp', 'Anh/chị chưa dùng nhiều, có cần em hỗ trợ setup workflow?', 'Cứu khách dùng ít', 'Zalo chủ động hỏi và đề nghị call 10 phút'],
+    [11, 'Kiểm tra quota', 'QuotaUsed cao', 'Anh/chị đang dùng tốt, có cần thêm quota/VIP không?', 'Mở upsell VIP', 'Gợi ý VIP nếu gần hết quota hoặc dùng nhiều kênh'],
+    [12, 'Case use', 'Đang dùng', 'Mẫu workflow cho 1 video YouTube mới', 'Tăng giá trị sử dụng', 'Gửi quy trình từ tiêu đề video đến 5 mẫu thumbnail'],
+    [13, 'Chất lượng', 'Có lỗi render hoặc kết quả kém', 'Cách sửa prompt khi ảnh chưa đúng ý', 'Giảm thất vọng về chất lượng', 'Gửi checklist sửa prompt: bố cục, đối tượng, cảm xúc, nền, chữ'],
+    [14, 'Tổng kết 2 tuần', 'Sau 14 ngày', 'Kiểm tra nhanh hiệu quả DG Image Tools của anh/chị', 'Đánh giá sử dụng nửa tháng', 'Nếu dùng ít thì hỗ trợ; nếu dùng tốt thì gợi ý workflow nâng cao'],
+    [15, 'Đào tạo', 'Đang dùng', 'Video nâng cao: tạo ảnh theo style riêng', 'Tăng sự phụ thuộc vào workflow', 'Gửi video/style guide và cách tạo prompt mẫu'],
+    [16, 'Thiết bị', 'Có nhiều thiết bị/team', 'Cách quản lý thiết bị và quota cho team', 'Hỗ trợ team/VIP', 'Hướng dẫn device limit, khi nào cần nâng VIP'],
+    [17, 'Năng suất', 'Đã dùng 10+ ảnh', 'Cách tạo lô ảnh hàng loạt mà vẫn giữ style', 'Tăng sản lượng', 'Gửi mẹo batch prompt, đặt tên file, lưu mẫu tốt'],
+    [18, 'Chăm sóc', 'Không hoạt động 5 ngày', 'Anh/chị có đang bị kẹt ở bước nào không?', 'Kéo quay lại', 'Zalo hỏi trực tiếp, gửi lại video phù hợp'],
+    [19, 'Tối ưu CTR', 'YouTube', '3 cách test thumbnail cho cùng một video', 'Liên hệ app với kết quả công việc', 'Gửi cách tạo 3 concept: cảm xúc, so sánh, câu hỏi'],
+    [20, 'Kiểm tra quota', 'Gần hết quota', 'Tài khoản của anh/chị sắp hết quota tạo ảnh', 'Upsell quota/VIP', 'Gợi ý nâng VIP hoặc mua thêm quota nếu có chính sách'],
+    [21, 'Tổng kết 3 tuần', 'Sau 21 ngày', '3 tuần sử dụng: có nên tối ưu lại workflow không?', 'Giảm rời bỏ trước gia hạn', 'Hỏi feedback, đề nghị xem prompt/ảnh mẫu'],
+    [22, 'Mẹo', 'Đang dùng', 'Bộ prompt mẫu cho ảnh sản phẩm/marketing', 'Mở rộng use case', 'Gửi prompt marketing nếu phù hợp, nếu không gửi prompt YouTube'],
+    [23, 'Bảo trì', 'Có lỗi gần đây', 'Nếu app báo lỗi, hãy gửi em ảnh màn hình này', 'Giảm friction hỗ trợ', 'Hướng dẫn gửi lỗi: email, thời gian, ảnh màn hình, prompt'],
+    [24, 'Gia hạn sớm', 'Còn 6 ngày hết hạn', 'Tài khoản còn khoảng 1 tuần, anh/chị có muốn gia hạn sớm không?', 'Mở đầu gia hạn', 'Nhắc gia hạn sớm nếu đang dùng tốt; nếu dùng ít thì đề nghị hỗ trợ'],
+    [25, 'Gia hạn', 'Còn 5 ngày hết hạn', 'Gia hạn DG Image Tools để không gián đoạn công việc', 'Gia hạn', 'Gửi thông tin gia hạn + lợi ích tiếp tục workflow'],
+    [26, 'Gia hạn/upsell', 'Dùng nhiều', 'Anh/chị có nên lên VIP tháng tới không?', 'Upsell VIP', 'So sánh gói tháng và VIP theo quota/thiết bị/team'],
+    [27, 'Hỏi vấn đề', 'Dùng ít', 'Nếu tháng này anh/chị dùng ít, em có thể hỗ trợ tối ưu lại', 'Cứu gia hạn', 'Hỏi lý do dùng ít và đề nghị setup workflow mới'],
+    [28, 'Nhắc hết hạn', 'Còn 2 ngày hết hạn', 'Tài khoản sắp hết hạn sau 2 ngày', 'Gia hạn rõ ràng', 'Gửi CTA gia hạn, nhắc không gián đoạn quota/công việc'],
+    [29, 'Nhắc cuối', 'Còn 1 ngày hết hạn', 'Ngày mai tài khoản DG Image Tools sẽ hết hạn', 'Chốt gia hạn', 'Gửi nhắc cuối + kênh thanh toán/hỗ trợ'],
+    [30, 'Hết hạn', 'Hết hạn/chưa gia hạn', 'Tài khoản đã hết hạn, gia hạn để dùng tiếp', 'Khôi phục', 'Gửi lời mời gia hạn, nếu dùng ít thì đề nghị hỗ trợ trước khi gia hạn'],
+    [45, 'Winback', 'Khách hết hạn 15 ngày', 'Anh/chị có muốn kích hoạt lại DG Image Tools không?', 'Lấy lại khách cũ', 'Gửi cập nhật mới + mời gia hạn lại'],
+    [60, 'Winback', 'Khách cũ im lặng', 'DG Image Tools có thêm workflow mới để tạo ảnh nhanh hơn', 'Winback dài hạn', 'Gửi video/cập nhật mới + offer hỗ trợ setup lại']
   ])
 ];
 
@@ -180,6 +184,16 @@ const showTwoFactorFlow = (result) => {
 
 const formatDate = (value) => value ? new Date(value).toLocaleString('vi-VN') : '-';
 const formatShortDate = (value) => value ? new Date(value).toLocaleDateString('vi-VN') : '-';
+const formatMoney = (value) => `${Number(value || 0).toLocaleString('vi-VN')}đ`;
+
+const formatOrderAge = (value) => {
+  if (!value) return '-';
+  const hours = Math.max(0, Math.floor((Date.now() - new Date(value).getTime()) / 3600000));
+  if (hours < 1) return 'Vừa tạo, nhắn xác nhận nội dung chuyển khoản';
+  if (hours < 24) return `${hours} giờ chưa thanh toán, Zalo nhắc chuyển đúng mã`;
+  const days = Math.floor(hours / 24);
+  return `${days} ngày chưa thanh toán, gọi/Zalo hỏi còn nhu cầu không`;
+};
 
 const appendTextCell = (row, value, className = '') => {
   const cell = document.createElement('td');
@@ -357,6 +371,40 @@ const renderEmailHistory = (emails) => {
   }));
 };
 
+const renderPendingPayments = (orders) => {
+  const pendingOrders = (orders || [])
+    .filter((order) => order.status === 'pending_payment')
+    .sort((left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime());
+
+  if (pendingPaymentCount) {
+    pendingPaymentCount.textContent = `${pendingOrders.length} đơn chờ xử lý`;
+  }
+
+  if (!pendingOrders.length) {
+    const row = document.createElement('tr');
+    const cell = document.createElement('td');
+    cell.colSpan = 8;
+    cell.className = 'muted-text empty-cell';
+    cell.textContent = 'Không có đơn chờ thanh toán.';
+    row.append(cell);
+    pendingPaymentsBody.replaceChildren(row);
+    return;
+  }
+
+  pendingPaymentsBody.replaceChildren(...pendingOrders.map((order) => {
+    const row = document.createElement('tr');
+    appendTextCell(row, formatDate(order.createdAt));
+    appendTextCell(row, order.customerName || '-');
+    appendTextCell(row, order.phone || '-');
+    appendTextCell(row, order.email || '-', 'email-cell');
+    appendTextCell(row, order.transferContent || order.code || '-', 'email-cell');
+    appendTextCell(row, order.planName || '-');
+    appendTextCell(row, formatMoney(order.price));
+    appendTextCell(row, formatOrderAge(order.createdAt), 'prompt-cell');
+    return row;
+  }));
+};
+
 const renderEmailSequences = () => {
   const flow = sequenceFlowFilter?.value || 'free';
   const rows = emailSequences.filter((item) => item.flow === flow);
@@ -480,15 +528,17 @@ const loadCurrentAdmin = async () => {
 };
 
 const loadDashboard = async () => {
-  const [stats, users, events, emailHistory] = await Promise.all([
+  const [stats, users, events, orders, emailHistory] = await Promise.all([
     api(`${ADMIN_API}/stats`),
     api(`${ADMIN_API}/users`),
     api(`${ADMIN_API}/events?limit=200`),
+    api(`${ADMIN_API}/orders?limit=500`),
     api(`${ADMIN_API}/email-history?limit=300`)
   ]);
 
   cachedUsers = users.users || [];
   cachedEvents = events.events || [];
+  cachedOrders = orders.orders || [];
   cachedEmailHistory = emailHistory.emails || [];
   setLoggedIn(true, currentAdmin);
   document.querySelector('#statUsers').textContent = stats.users;
@@ -499,6 +549,7 @@ const loadDashboard = async () => {
   document.querySelector('#lastUpdated').textContent = `Cập nhật ${new Date().toLocaleTimeString('vi-VN')}`;
   renderUsers();
   renderEvents(cachedEvents);
+  renderPendingPayments(cachedOrders);
   renderEmailHistory(cachedEmailHistory);
   renderEmailSequences();
   renderAgentInsights();
@@ -530,6 +581,10 @@ document.querySelectorAll('.preset').forEach((button) => {
 });
 
 sequenceFlowFilter?.addEventListener('change', renderEmailSequences);
+
+emailCenterButton?.addEventListener('click', () => {
+  document.querySelector('#emailCenter')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+});
 
 adminLogin.addEventListener('submit', async (event) => {
   event.preventDefault();

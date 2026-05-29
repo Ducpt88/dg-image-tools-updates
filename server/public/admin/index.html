@@ -54,6 +54,7 @@
             </div>
           </div>
           <div class="topbar-actions">
+            <button id="emailCenterButton" class="secondary" type="button">Email</button>
             <span id="lastUpdated" class="muted-text">Chưa cập nhật</span>
             <button id="refresh" class="secondary" type="button">Cập nhật</button>
             <button id="logout" class="danger" type="button">Đăng xuất</button>
@@ -104,6 +105,33 @@
             </header>
             <div id="agentInsights" class="agent-insights"></div>
           </aside>
+        </section>
+
+        <section class="panel pending-payment-panel">
+          <header class="panel-title toolbar-title">
+            <div>
+              <h2>Đơn chờ thanh toán</h2>
+              <p>Những khách đã để lại thông tin nhưng hệ thống chưa ghi nhận chuyển khoản thành công.</p>
+            </div>
+            <span id="pendingPaymentCount" class="muted-text"></span>
+          </header>
+          <div class="table-wrap">
+            <table class="pending-payment-table">
+              <thead>
+                <tr>
+                  <th>Thời gian tạo</th>
+                  <th>Khách hàng</th>
+                  <th>Số điện thoại</th>
+                  <th>Email</th>
+                  <th>Mã chuyển khoản</th>
+                  <th>Gói</th>
+                  <th>Số tiền</th>
+                  <th>Việc nên làm</th>
+                </tr>
+              </thead>
+              <tbody id="pendingPaymentsBody"></tbody>
+            </table>
+          </div>
         </section>
 
         <section class="panel">
@@ -162,7 +190,7 @@
           </div>
         </section>
 
-        <section class="panel">
+        <section id="emailCenter" class="panel email-center-panel">
           <header class="panel-title toolbar-title">
             <div>
               <h2>Danh mục chuỗi email tự động</h2>

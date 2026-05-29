@@ -50,6 +50,7 @@ small, .muted-text, p { color: #627386; }
 
 .ops-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; align-items: start; }
 .panel { overflow: hidden; }
+.email-center-panel { scroll-margin-top: 18px; }
 .panel-title { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; border-bottom: 1px solid #e8edf4; padding: 14px; }
 .panel-title.compact { border-bottom: 0; padding-bottom: 8px; }
 .toolbar-title { align-items: center; }
@@ -75,6 +76,7 @@ small, .muted-text, p { color: #627386; }
 .table-wrap { overflow: auto; }
 table { width: 100%; min-width: 1240px; border-collapse: collapse; table-layout: fixed; }
 .events-table { min-width: 940px; }
+.pending-payment-table { min-width: 1240px; }
 .email-history-table { min-width: 1320px; }
 .sequence-table { min-width: 1500px; }
 .sequence-tools { grid-template-columns: 210px minmax(120px, auto); align-items: center; }
@@ -100,6 +102,15 @@ th:nth-child(10), td:nth-child(10) { width: 300px; }
 .sequence-table th:nth-child(6), .sequence-table td:nth-child(6) { width: 438px; }
 .email-history-table th:nth-child(8), .email-history-table td:nth-child(8) { width: 320px; }
 .email-history-table th:nth-child(10), .email-history-table td:nth-child(10) { width: 120px; }
+.pending-payment-table th:nth-child(1), .pending-payment-table td:nth-child(1) { width: 150px; }
+.pending-payment-table th:nth-child(2), .pending-payment-table td:nth-child(2) { width: 170px; }
+.pending-payment-table th:nth-child(3), .pending-payment-table td:nth-child(3) { width: 140px; }
+.pending-payment-table th:nth-child(4), .pending-payment-table td:nth-child(4) { width: 240px; }
+.pending-payment-table th:nth-child(5), .pending-payment-table td:nth-child(5) { width: 170px; }
+.pending-payment-table th:nth-child(6), .pending-payment-table td:nth-child(6) { width: 120px; }
+.pending-payment-table th:nth-child(7), .pending-payment-table td:nth-child(7) { width: 120px; }
+.pending-payment-table th:nth-child(8), .pending-payment-table td:nth-child(8) { width: 330px; }
+.empty-cell { text-align: center; padding: 18px; }
 
 .row-actions { display: flex; flex-wrap: wrap; gap: 6px; min-width: 250px; }
 .row-actions button { min-height: 32px; padding: 0 10px; }
