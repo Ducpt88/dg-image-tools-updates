@@ -45,6 +45,15 @@ const opsFocusTitle = document.querySelector('#opsFocusTitle');
 const opsFocusText = document.querySelector('#opsFocusText');
 const emailFocusTitle = document.querySelector('#emailFocusTitle');
 const emailFocusText = document.querySelector('#emailFocusText');
+const emailSentCount = document.querySelector('#emailSentCount');
+const emailNeedsFollowUp = document.querySelector('#emailNeedsFollowUp');
+const emailSequenceStepCount = document.querySelector('#emailSequenceStepCount');
+const emailSequenceFlowLabel = document.querySelector('#emailSequenceFlowLabel');
+const emailNoLoginCount = document.querySelector('#emailNoLoginCount');
+const emailPriorityTitle = document.querySelector('#emailPriorityTitle');
+const emailPriorityText = document.querySelector('#emailPriorityText');
+const emailSequenceTitle = document.querySelector('#emailSequenceTitle');
+const emailSequenceText = document.querySelector('#emailSequenceText');
 const USER_API = '/api/9router/user';
 const ADMIN_API = '/api/9router/admin';
 
@@ -453,6 +462,27 @@ const renderEmailHistory = (emails) => {
   }));
 };
 
+const renderEmailCenterSummary = (sequenceRows = []) => {
+  const needsFollowUp = cachedEmailHistory.filter((email) => !email.lastLoginAt || Number(email.quotaUsed || 0) <= 0);
+  const noLogin = cachedEmailHistory.filter((email) => !email.lastLoginAt);
+  const firstCare = needsFollowUp[0] || null;
+  const flowLabel = (sequenceFlowFilter?.value || 'free') === 'free' ? 'Free -> trả phí' : 'Trả phí -> hỗ trợ/gia hạn';
+
+  emailSentCount.textContent = cachedEmailHistory.length;
+  emailNeedsFollowUp.textContent = needsFollowUp.length;
+  emailNoLoginCount.textContent = noLogin.length;
+  emailSequenceStepCount.textContent = sequenceRows.length;
+  emailSequenceFlowLabel.textContent = flowLabel;
+  emailPriorityTitle.textContent = `${needsFollowUp.length} khách cần nhắc`;
+  emailPriorityText.textContent = firstCare
+    ? `Ưu tiên ${firstCare.customerName || firstCare.to || firstCare.orderCode}: ${firstCare.recommendedAction || 'nhắc kiểm tra email và đăng nhập.'}`
+    : 'Không có khách bị kẹt trong lịch sử email hiện tại.';
+  emailSequenceTitle.textContent = `${sequenceRows.length} bước trong chuỗi ${flowLabel}`;
+  emailSequenceText.textContent = flowLabel === 'Free -> trả phí'
+    ? 'Luồng nuôi lead dùng thử, nhắc dùng app và bán lên gói trả phí.'
+    : 'Luồng chăm sóc khách đã trả phí, hỗ trợ dùng app và nhắc gia hạn.';
+};
+
 const renderPendingPayments = (orders) => {
   const pendingOrders = (orders || [])
     .filter((order) => order.status === 'pending_payment')
@@ -506,6 +536,7 @@ const renderEmailSequences = () => {
     appendTextCell(row, item.action || '-', 'prompt-cell');
     return row;
   }));
+  renderEmailCenterSummary(rows);
 };
 
 const renderAgentInsights = () => {

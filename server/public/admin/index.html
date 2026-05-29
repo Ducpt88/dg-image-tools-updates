@@ -224,7 +224,39 @@
           </div>
         </section>
 
-        <section id="emailCenter" class="panel email-center-panel section-anchor">
+        <section id="emailCenter" class="email-center-workspace section-anchor">
+          <header class="workspace-title">
+            <div>
+              <h2>Trung tâm quản lý email</h2>
+              <p>Quản lý riêng toàn bộ hệ thống email: chuỗi chăm sóc tự động, lịch sử gửi, khách bị kẹt và việc cần nhắc lại.</p>
+            </div>
+            <div class="workspace-actions">
+              <button class="secondary nav-action" type="button" data-scroll-target="#emailSequencePanel">Chuỗi email</button>
+              <button class="secondary nav-action" type="button" data-scroll-target="#emailHistoryPanel">Lịch sử gửi</button>
+            </div>
+          </header>
+
+          <section class="email-summary-grid" aria-label="Tổng quan hệ thống email">
+            <article class="email-summary-card"><span>Email đã gửi</span><strong id="emailSentCount">0</strong><small>Tổng email tài khoản đã ghi nhận</small></article>
+            <article class="email-summary-card warning"><span>Cần nhắc lại</span><strong id="emailNeedsFollowUp">0</strong><small>Chưa đăng nhập hoặc chưa tạo ảnh</small></article>
+            <article class="email-summary-card"><span>Chuỗi đang xem</span><strong id="emailSequenceStepCount">0</strong><small id="emailSequenceFlowLabel">Free -> trả phí</small></article>
+            <article class="email-summary-card danger"><span>Khách chưa đăng nhập</span><strong id="emailNoLoginCount">0</strong><small>Ưu tiên gọi/Zalo kiểm tra inbox</small></article>
+          </section>
+
+          <section class="email-action-grid" aria-label="Việc cần xử lý trong email">
+            <article class="email-action-card">
+              <span>Ưu tiên chăm sóc</span>
+              <strong id="emailPriorityTitle">0 khách cần nhắc</strong>
+              <p id="emailPriorityText">Theo dõi khách đã nhận email nhưng chưa có hoạt động.</p>
+            </article>
+            <article class="email-action-card">
+              <span>Quy trình email</span>
+              <strong id="emailSequenceTitle">0 bước trong chuỗi</strong>
+              <p id="emailSequenceText">Chọn luồng Free hoặc Trả phí để xem lịch chăm sóc.</p>
+            </article>
+          </section>
+
+          <section id="emailSequencePanel" class="panel email-center-panel section-anchor">
           <header class="panel-title toolbar-title">
             <div>
               <h2>Danh mục chuỗi email tự động</h2>
@@ -253,9 +285,9 @@
               <tbody id="sequenceBody"></tbody>
             </table>
           </div>
-        </section>
+          </section>
 
-        <section id="emailHistoryPanel" class="panel section-anchor">
+          <section id="emailHistoryPanel" class="panel section-anchor">
           <header class="panel-title">
             <div>
               <h2>Lịch sử gửi email</h2>
@@ -281,6 +313,7 @@
               <tbody id="emailHistoryBody"></tbody>
             </table>
           </div>
+          </section>
         </section>
       </section>
     </main>
