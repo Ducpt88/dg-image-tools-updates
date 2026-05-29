@@ -43,6 +43,7 @@ const accountFocusTitle = document.querySelector('#accountFocusTitle');
 const accountFocusText = document.querySelector('#accountFocusText');
 const opsFocusTitle = document.querySelector('#opsFocusTitle');
 const opsFocusText = document.querySelector('#opsFocusText');
+const resetRenderOpsButton = document.querySelector('#resetRenderOps');
 const emailFocusTitle = document.querySelector('#emailFocusTitle');
 const emailFocusText = document.querySelector('#emailFocusText');
 const emailSentCount = document.querySelector('#emailSentCount');
@@ -65,6 +66,8 @@ let cachedOrders = [];
 let cachedEmailHistory = [];
 let activePlanFilter = 'all';
 let pendingTwoFactor = null;
+const DEFAULT_RENDER_OPS_RESET_AT = '2026-05-29T08:12:00.000Z';
+let renderOpsResetAt = localStorage.getItem('renderOpsResetAt') || DEFAULT_RENDER_OPS_RESET_AT;
 
 const planLabels = {
   all: 'Tất cả gói',
@@ -268,6 +271,10 @@ const getUserPlanKey = (user) => {
 };
 
 const getOperationalMetrics = () => {
+  const renderResetTime = renderOpsResetAt ? new Date(renderOpsResetAt).getTime() : 0;
+  const trackedEvents = renderResetTime
+    ? cachedEvents.filter((event) => new Date(event.createdAt || 0).getTime() > renderResetTime)
+    : cachedEvents;
   const pendingOrders = cachedOrders.filter((order) => order.status === 'pending_payment');
   const paidOrders = cachedOrders.filter((order) => order.status === 'paid' || order.paidAt);
   const paidRevenue = paidOrders.reduce((total, order) => total + Number(order.price || 0), 0);
@@ -280,8 +287,8 @@ const getOperationalMetrics = () => {
   });
   const inactive = cachedUsers.filter((user) => user.role !== 'admin' && !user.activatedAt && user.status === 'active');
   const attentionIds = new Set([...lowQuota, ...expiring, ...inactive].map((user) => user.id));
-  const successEvents = cachedEvents.filter((event) => event.ok).length;
-  const failedEvents = cachedEvents.filter((event) => !event.ok).length;
+  const successEvents = trackedEvents.filter((event) => event.ok).length;
+  const failedEvents = trackedEvents.filter((event) => !event.ok).length;
   const totalEvents = successEvents + failedEvents;
   const successRate = totalEvents ? Math.round((successEvents / totalEvents) * 100) : 100;
   const emailNeedsCare = cachedEmailHistory.filter((email) => !email.lastLoginAt || Number(email.quotaUsed || 0) <= 0).length;
@@ -298,6 +305,7 @@ const getOperationalMetrics = () => {
     attentionUsers: attentionIds.size,
     failedEvents,
     successRate,
+    trackedEvents: trackedEvents.length,
     emailNeedsCare
   };
 };
@@ -324,8 +332,10 @@ const renderDashboardSummary = () => {
   accountFocusTitle.textContent = `${metrics.attentionUsers} tài khoản cần kiểm tra`;
   accountFocusText.textContent = `${metrics.lowQuota.length} quota thấp, ${metrics.expiring.length} sắp hết hạn, ${metrics.inactive.length} chưa kích hoạt.`;
 
-  opsFocusTitle.textContent = `${metrics.failedEvents} lỗi trong lịch sử gần đây`;
-  opsFocusText.textContent = `Tỷ lệ render thành công ${metrics.successRate}%. Kiểm tra lỗi nếu số này giảm.`;
+  opsFocusTitle.textContent = `${metrics.failedEvents} lỗi mới sau reset`;
+  opsFocusText.textContent = renderOpsResetAt
+    ? `Đang theo dõi ${metrics.trackedEvents} tiến trình mới từ ${formatDate(renderOpsResetAt)}. Tỷ lệ thành công ${metrics.successRate}%.`
+    : `Tỷ lệ render thành công ${metrics.successRate}%. Bấm reset để bắt đầu theo dõi tiến trình mới từ 0.`;
 
   emailFocusTitle.textContent = `${metrics.emailNeedsCare} khách cần nhắc`;
   emailFocusText.textContent = metrics.emailNeedsCare
@@ -700,6 +710,12 @@ document.querySelectorAll('.nav-action').forEach((button) => {
     const target = document.querySelector(button.dataset.scrollTarget || '');
     target?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   });
+});
+
+resetRenderOpsButton?.addEventListener('click', () => {
+  renderOpsResetAt = new Date().toISOString();
+  localStorage.setItem('renderOpsResetAt', renderOpsResetAt);
+  renderDashboardSummary();
 });
 
 adminLogin.addEventListener('submit', async (event) => {

@@ -59,6 +59,8 @@ small, .muted-text, p { color: #627386; }
 .management-card strong { color: #12202f; font-size: 18px; line-height: 1.25; }
 .management-card p { line-height: 1.45; min-height: 38px; }
 .management-card button { justify-self: start; align-self: end; }
+.card-actions { display: flex; gap: 8px; flex-wrap: wrap; align-self: end; }
+.card-actions button { justify-self: auto; }
 .management-card.attention { border-top: 4px solid #d97706; }
 .management-card.danger { border-top: 4px solid #dc2626; }
 
