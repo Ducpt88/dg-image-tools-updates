@@ -54,16 +54,17 @@
             </div>
           </div>
           <div class="topbar-actions">
-            <button class="secondary nav-action" type="button" data-scroll-target="#dashboardOverview">Tổng quan</button>
-            <button class="secondary nav-action" type="button" data-scroll-target="#pendingPayments">Đơn chờ</button>
-            <button class="secondary nav-action" type="button" data-scroll-target="#accountsPanel">Tài khoản</button>
-            <button id="emailCenterButton" class="secondary nav-action" type="button" data-scroll-target="#emailCenter">Email</button>
+            <button class="secondary nav-action active" type="button" data-tab-target="#mainAdminTab" data-scroll-target="#dashboardOverview">Tổng quan</button>
+            <button class="secondary nav-action" type="button" data-tab-target="#mainAdminTab" data-scroll-target="#pendingPayments">Đơn chờ</button>
+            <button class="secondary nav-action" type="button" data-tab-target="#mainAdminTab" data-scroll-target="#accountsPanel">Tài khoản</button>
+            <button id="emailCenterButton" class="secondary nav-action" type="button" data-tab-target="#emailCenter">Email</button>
             <span id="lastUpdated" class="muted-text">Chưa cập nhật</span>
             <button id="refresh" class="secondary" type="button">Cập nhật</button>
             <button id="logout" class="danger" type="button">Đăng xuất</button>
           </div>
         </header>
 
+        <section id="mainAdminTab" class="admin-tab-panel">
         <section id="dashboardOverview" class="dashboard-overview">
           <section class="stats-grid" aria-label="Tổng quan vận hành">
             <article class="stat-card revenue"><span>Doanh thu đã ghi nhận</span><strong id="statPaidRevenue">0đ</strong><small id="statPaidOrders">0 đơn đã thanh toán</small></article>
@@ -102,7 +103,7 @@
               <span>Email & chăm sóc</span>
               <strong id="emailFocusTitle">0 khách cần nhắc</strong>
               <p id="emailFocusText">Theo dõi email đã gửi và khách chưa dùng app sau khi nhận tài khoản.</p>
-              <button class="secondary nav-action" type="button" data-scroll-target="#emailHistoryPanel">Xem email</button>
+              <button class="secondary nav-action" type="button" data-tab-target="#emailCenter" data-scroll-target="#emailHistoryPanel">Xem email</button>
             </article>
           </section>
         </section>
@@ -226,8 +227,9 @@
             </table>
           </div>
         </section>
+        </section>
 
-        <section id="emailCenter" class="email-center-workspace section-anchor">
+        <section id="emailCenter" class="admin-tab-panel email-center-workspace section-anchor hidden">
           <header class="workspace-title">
             <div>
               <h2>Trung tâm quản lý email</h2>

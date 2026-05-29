@@ -352,6 +352,16 @@ const updatePlanButtons = () => {
   }
 };
 
+const switchAdminTab = (targetSelector) => {
+  if (!targetSelector) return;
+  document.querySelectorAll('.admin-tab-panel').forEach((panel) => {
+    panel.classList.toggle('hidden', `#${panel.id}` !== targetSelector);
+  });
+  document.querySelectorAll('.topbar-actions .nav-action').forEach((button) => {
+    button.classList.toggle('active', button.dataset.tabTarget === targetSelector);
+  });
+};
+
 const getFilteredUsers = () => {
   const query = userSearch.value.trim().toLowerCase();
   const status = statusFilter.value;
@@ -707,8 +717,16 @@ sequenceFlowFilter?.addEventListener('change', renderEmailSequences);
 
 document.querySelectorAll('.nav-action').forEach((button) => {
   button.addEventListener('click', () => {
-    const target = document.querySelector(button.dataset.scrollTarget || '');
-    target?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    const tabTarget = button.dataset.tabTarget || '';
+    if (tabTarget) {
+      switchAdminTab(tabTarget);
+    }
+
+    const scrollTarget = button.dataset.scrollTarget || tabTarget;
+    window.requestAnimationFrame(() => {
+      const target = document.querySelector(scrollTarget || '');
+      target?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
   });
 });
 

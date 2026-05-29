@@ -38,6 +38,8 @@ small, .muted-text, p { color: #627386; }
 .topbar { position: sticky; top: 0; z-index: 20; display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 14px 16px; }
 .topbar-actions { display: flex; align-items: center; justify-content: flex-end; gap: 10px; flex-wrap: wrap; }
 .nav-action { min-height: 34px; padding: 0 12px; }
+.nav-action.active { background: #1267d6; border-color: #1267d6; color: #fff; box-shadow: 0 0 0 3px rgba(18, 103, 214, .12); }
+.admin-tab-panel { display: grid; gap: 18px; }
 
 .brand-lockup { display: flex; align-items: center; gap: 12px; min-width: 0; }
 .brand-lockup.large { align-items: flex-start; }
