@@ -52,16 +52,17 @@ const EMERGENCY_ROUTER_IMAGE_ENDPOINT = String(
   process.env.EMERGENCY_ROUTER_ENDPOINT
   || process.env.EMERGENCY_ROUTER_IMAGE_ENDPOINT
   || process.env.ROUTER_IMAGE_EMERGENCY_ENDPOINT
-  || 'https://chatty-kids-like.loca.lt/v1/images/generations'
+  || ''
 ).trim();
 const ROUTER_IMAGE_ENDPOINTS = [...new Set([
-  EMERGENCY_ROUTER_IMAGE_ENDPOINT,
+  ROUTER_IMAGE_ENDPOINT,
   ROUTER_IMAGE_FALLBACK_ENDPOINT,
-  ROUTER_IMAGE_ENDPOINT
+  EMERGENCY_ROUTER_IMAGE_ENDPOINT
 ].filter(Boolean))];
 let preferredRouterImageEndpoint = process.env.ROUTER_IMAGE_PREFERRED_ENDPOINT
   || ROUTER_IMAGE_ENDPOINT;
 const ROUTER_IMAGE_MODEL = process.env.ROUTER_IMAGE_MODEL || (isOpenAiImageProvider ? 'gpt-image-1' : '');
+const ROUTER_IMAGE_TIMEOUT_MS = Number(process.env.ROUTER_IMAGE_TIMEOUT_MS || 60000);
 const ROUTER_QUOTA_ENDPOINT = process.env.ROUTER_QUOTA_ENDPOINT || '';
 const ROUTER_QUOTA_TOTAL = Number(process.env.ROUTER_QUOTA_TOTAL || 0);
 const ROUTER_API_KEY = process.env.ROUTER_API_KEY || '';
@@ -909,6 +910,33 @@ const getRouterTargetKey = (target) => {
   return isConfiguredSecret(ROUTER_API_KEY) ? ROUTER_API_KEY : '';
 };
 
+const implicitRouterTargets = () => [
+  {
+    name: 'primary-openai-env',
+    url: OPENAI_IMAGE_ENDPOINT,
+    provider: 'openai',
+    model: process.env.OPENAI_IMAGE_MODEL || 'gpt-image-1',
+    key: '',
+    keyEnv: 'OPENAI_API_KEY'
+  },
+  {
+    name: 'fallback-vps-9router-env',
+    url: String(process.env.VPS_ROUTER_IMAGE_ENDPOINT || process.env.BACKUP_ROUTER_IMAGE_ENDPOINT || '').trim(),
+    provider: '9router',
+    model: process.env.VPS_ROUTER_IMAGE_MODEL || 'cx/gpt-5.5-image',
+    key: '',
+    keyEnv: 'VPS_ROUTER_API_KEY'
+  },
+  {
+    name: 'emergency-router-env',
+    url: EMERGENCY_ROUTER_IMAGE_ENDPOINT,
+    provider: '9router',
+    model: process.env.EMERGENCY_ROUTER_IMAGE_MODEL || 'cx/gpt-5.5-image',
+    key: '',
+    keyEnv: 'EMERGENCY_ROUTER_API_KEY'
+  }
+].filter((target) => target.url && getRouterTargetKey(target));
+
 const legacyRouterTargets = () => ROUTER_IMAGE_ENDPOINTS.map((url, index) => ({
   name: index === 0 ? 'primary' : `fallback-${index}`,
   url,
@@ -921,6 +949,7 @@ const legacyRouterTargets = () => ROUTER_IMAGE_ENDPOINTS.map((url, index) => ({
 const getRouterImageTargets = () => {
   const parsedTargets = parseRouterTargetsJson();
   const targets = parsedTargets.length ? parsedTargets : legacyRouterTargets();
+  targets.push(...implicitRouterTargets());
   if (EMERGENCY_ROUTER_IMAGE_ENDPOINT) {
     targets.push({
       name: 'emergency-live-tunnel',
@@ -998,6 +1027,47 @@ const getFetchErrorMessage = (error) => [
   error.cause?.code
 ].filter(Boolean).join(' | ');
 
+const shouldTryNextImageTarget = (status, rawText = '') => {
+  if (!status) {
+    return true;
+  }
+
+  if ([408, 409, 425, 429, 500, 502, 503, 504].includes(Number(status))) {
+    return true;
+  }
+
+  const detail = String(rawText || '');
+  if ([401, 403].includes(Number(status)) && /api key|invalid_api_key|unauthorized|forbidden/i.test(detail)) {
+    return true;
+  }
+
+  return /timeout|temporar|overload|rate limit|try again|server busy|fetch failed|tunnel unavailable/i.test(detail)
+    && !/(invalid|unauthorized|forbidden|quota|billing|policy|content|safety|permission|api key)/i.test(detail);
+};
+
+const fetchWithTimeout = async (url, options = {}, timeoutMs = ROUTER_IMAGE_TIMEOUT_MS) => {
+  const timeout = Number(timeoutMs || 0);
+  if (!timeout || !Number.isFinite(timeout) || timeout <= 0) {
+    return fetch(url, options);
+  }
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(new Error('router image timeout')), timeout);
+
+  try {
+    return await fetch(url, { ...options, signal: controller.signal });
+  } catch (error) {
+    if (controller.signal.aborted) {
+      const timeoutError = new Error(`router image timeout after ${Math.round(timeout / 1000)}s`);
+      timeoutError.cause = error;
+      throw timeoutError;
+    }
+    throw error;
+  } finally {
+    clearTimeout(timer);
+  }
+};
+
 const fetchRouterImage = async (body) => {
   let upstream = null;
   let rawText = '';
@@ -1010,7 +1080,7 @@ const fetchRouterImage = async (body) => {
     const targetKey = getRouterTargetKey(target);
     const payload = buildImagePayload(body, target);
     try {
-      upstream = await fetch(target.url, {
+      upstream = await fetchWithTimeout(target.url, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -1023,6 +1093,10 @@ const fetchRouterImage = async (body) => {
 
       if (upstream.ok) {
         preferredRouterImageEndpoint = target.name || target.url;
+        return { upstream, rawText, endpoint: target.url, target };
+      }
+
+      if (!shouldTryNextImageTarget(upstream.status, rawText)) {
         return { upstream, rawText, endpoint: target.url, target };
       }
 
