@@ -1,4 +1,4 @@
-require('dotenv').config();
+﻿require('dotenv').config();
 
 const express = require('express');
 const helmet = require('helmet');
@@ -48,13 +48,20 @@ const ROUTER_IMAGE_ENDPOINT = configuredRouterImageEndpoint
 const ROUTER_IMAGE_FALLBACK_ENDPOINT = String(
   process.env.ROUTER_IMAGE_FALLBACK_ENDPOINT || ''
 ).trim();
+const EMERGENCY_ROUTER_IMAGE_ENDPOINT = String(
+  process.env.EMERGENCY_ROUTER_IMAGE_ENDPOINT
+  || process.env.ROUTER_IMAGE_EMERGENCY_ENDPOINT
+  || 'https://heading-vehicles-watt-hamilton.trycloudflare.com/v1/images/generations'
+).trim();
 const ROUTER_IMAGE_ENDPOINTS = [...new Set([
   ROUTER_IMAGE_ENDPOINT,
-  ROUTER_IMAGE_FALLBACK_ENDPOINT
+  ROUTER_IMAGE_FALLBACK_ENDPOINT,
+  EMERGENCY_ROUTER_IMAGE_ENDPOINT
 ].filter(Boolean))];
 let preferredRouterImageEndpoint = process.env.ROUTER_IMAGE_PREFERRED_ENDPOINT
   || ROUTER_IMAGE_ENDPOINT;
 const ROUTER_IMAGE_MODEL = process.env.ROUTER_IMAGE_MODEL || (isOpenAiImageProvider ? 'gpt-image-1' : '');
+const ROUTER_IMAGE_TIMEOUT_MS = Number(process.env.ROUTER_IMAGE_TIMEOUT_MS || 60000);
 const ROUTER_QUOTA_ENDPOINT = process.env.ROUTER_QUOTA_ENDPOINT || '';
 const ROUTER_QUOTA_TOTAL = Number(process.env.ROUTER_QUOTA_TOTAL || 0);
 const ROUTER_API_KEY = process.env.ROUTER_API_KEY || '';
@@ -283,21 +290,21 @@ const escapeHtml = (value) => String(value || '')
 const buildCustomerEmailHtml = ({ order, password, kind }) => {
   const isTrial = kind === 'trial';
   const title = isTrial
-    ? 'Chúc mừng bạn đã đăng ký sử dụng gói dùng thử 0đ DG Image Tools thành công!'
-    : 'Chúc mừng bạn đã đăng ký sử dụng DG Image Tools thành công!';
+    ? 'ChÃºc má»«ng báº¡n Ä‘Ã£ Ä‘Äƒng kÃ½ sá»­ dá»¥ng gÃ³i dÃ¹ng thá»­ 0Ä‘ DG Image Tools thÃ nh cÃ´ng!'
+    : 'ChÃºc má»«ng báº¡n Ä‘Ã£ Ä‘Äƒng kÃ½ sá»­ dá»¥ng DG Image Tools thÃ nh cÃ´ng!';
   const accent = isTrial ? '#2563eb' : '#047857';
   const appLogo = 'https://ducpt.com/image/assets/dg-image-tools-icon.png';
   const rows = [
-    ['Tài khoản', order.email],
-    ['Mật khẩu', password],
-    ['Số ảnh được tạo', order.quotaTotal],
-    ['Thời gian sử dụng', order.expiresAt],
-    ['Link tải', USER_APP_DOWNLOAD_URL],
+    ['TÃ i khoáº£n', order.email],
+    ['Máº­t kháº©u', password],
+    ['Sá»‘ áº£nh Ä‘Æ°á»£c táº¡o', order.quotaTotal],
+    ['Thá»i gian sá»­ dá»¥ng', order.expiresAt],
+    ['Link táº£i', USER_APP_DOWNLOAD_URL],
     ['Link videos', GUIDE_VIDEO_URL]
   ];
   const paidCta = isTrial ? '' : `
-    <p style="margin:18px 0 8px;font-size:15px;line-height:1.6;color:#334155;"><strong>Nhóm Zalo hỗ trợ trả phí:</strong></p>
-    <a href="${escapeHtml(ZALO_GROUP_URL)}" style="display:inline-block;margin:0 0 14px;padding:12px 18px;border-radius:8px;background:#047857;color:#ffffff;text-decoration:none;font-weight:800;">Vào nhóm Zalo</a>`;
+    <p style="margin:18px 0 8px;font-size:15px;line-height:1.6;color:#334155;"><strong>NhÃ³m Zalo há»— trá»£ tráº£ phÃ­:</strong></p>
+    <a href="${escapeHtml(ZALO_GROUP_URL)}" style="display:inline-block;margin:0 0 14px;padding:12px 18px;border-radius:8px;background:#047857;color:#ffffff;text-decoration:none;font-weight:800;">VÃ o nhÃ³m Zalo</a>`;
 
   return `<!doctype html>
 <html lang="vi">
@@ -311,13 +318,13 @@ const buildCustomerEmailHtml = ({ order, password, kind }) => {
               <td style="padding-left:10px;color:${accent};font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;">DG Image Tools</td>
             </tr></table>
             <h1 style="margin:0 0 12px;font-size:26px;line-height:1.25;color:#0f172a;">${title}</h1>
-            <p style="margin:0 0 20px;font-size:15px;line-height:1.6;color:#334155;">Xin chào ${escapeHtml(order.customerName || 'bạn')}, dưới đây là thông tin tài khoản của bạn.</p>
+            <p style="margin:0 0 20px;font-size:15px;line-height:1.6;color:#334155;">Xin chÃ o ${escapeHtml(order.customerName || 'báº¡n')}, dÆ°á»›i Ä‘Ã¢y lÃ  thÃ´ng tin tÃ i khoáº£n cá»§a báº¡n.</p>
             <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:separate;border-spacing:0;border:1px solid #dbe3ef;border-radius:10px;overflow:hidden;">
               ${rows.map(([label, value]) => `<tr><td style="padding:12px 14px;background:#f8fafc;border-bottom:1px solid #e5edf7;width:42%;font-size:13px;color:#64748b;font-weight:700;">${escapeHtml(label)}</td><td style="padding:12px 14px;border-bottom:1px solid #e5edf7;font-size:14px;color:#0f172a;font-weight:800;">${escapeHtml(value)}</td></tr>`).join('')}
             </table>
             ${paidCta}
             <p style="margin:18px 0 0;font-size:15px;line-height:1.6;color:#334155;">-----DG Media Holding-----</p>
-            <p style="margin:10px 0 0;font-size:15px;line-height:1.6;color:#334155;">Hãy đăng nhập app bằng email này. Nếu cần hỗ trợ tạo tài khoản hoặc cài app, nhắn trực tiếp cho Đức để được hướng dẫn nhanh: <strong>${escapeHtml(SUPPORT_PHONE)}</strong>.</p>
+            <p style="margin:10px 0 0;font-size:15px;line-height:1.6;color:#334155;">HÃ£y Ä‘Äƒng nháº­p app báº±ng email nÃ y. Náº¿u cáº§n há»— trá»£ táº¡o tÃ i khoáº£n hoáº·c cÃ i app, nháº¯n trá»±c tiáº¿p cho Äá»©c Ä‘á»ƒ Ä‘Æ°á»£c hÆ°á»›ng dáº«n nhanh: <strong>${escapeHtml(SUPPORT_PHONE)}</strong>.</p>
           </td></tr>
         </table>
       </td></tr>
@@ -329,34 +336,34 @@ const buildCustomerEmailHtml = ({ order, password, kind }) => {
 const buildCustomerEmail = ({ order, password, kind }) => {
   const isTrial = kind === 'trial';
   const subject = isTrial
-    ? 'Tài khoản dùng thử DG Image Tools của bạn đã sẵn sàng'
-    : 'Tài khoản DG Image Tools của bạn đã được kích hoạt';
+    ? 'TÃ i khoáº£n dÃ¹ng thá»­ DG Image Tools cá»§a báº¡n Ä‘Ã£ sáºµn sÃ ng'
+    : 'TÃ i khoáº£n DG Image Tools cá»§a báº¡n Ä‘Ã£ Ä‘Æ°á»£c kÃ­ch hoáº¡t';
   const lines = isTrial ? [
-    'Chúc mừng bạn đã đăng ký sử dụng gói dùng thử 0đ DG Image Tools thành công!',
+    'ChÃºc má»«ng báº¡n Ä‘Ã£ Ä‘Äƒng kÃ½ sá»­ dá»¥ng gÃ³i dÃ¹ng thá»­ 0Ä‘ DG Image Tools thÃ nh cÃ´ng!',
     '',
-    `Tài khoản : ${order.email}`,
-    `Mật khẩu : ${password}`,
-    `Số ảnh được tạo: ${order.quotaTotal}`,
-    `Thời gian sử dụng : ${order.expiresAt}`,
-    `Link tải: ${USER_APP_DOWNLOAD_URL}`,
+    `TÃ i khoáº£n : ${order.email}`,
+    `Máº­t kháº©u : ${password}`,
+    `Sá»‘ áº£nh Ä‘Æ°á»£c táº¡o: ${order.quotaTotal}`,
+    `Thá»i gian sá»­ dá»¥ng : ${order.expiresAt}`,
+    `Link táº£i: ${USER_APP_DOWNLOAD_URL}`,
     `Link videos : ${GUIDE_VIDEO_URL}`,
     '',
     '-----DG Media Holding-----',
-    `Hãy đăng nhập app bằng email này. Nếu cần hỗ trợ tạo tài khoản hoặc cài app, nhắn trực tiếp cho Đức để được hướng dẫn nhanh ${SUPPORT_PHONE}`
+    `HÃ£y Ä‘Äƒng nháº­p app báº±ng email nÃ y. Náº¿u cáº§n há»— trá»£ táº¡o tÃ i khoáº£n hoáº·c cÃ i app, nháº¯n trá»±c tiáº¿p cho Äá»©c Ä‘á»ƒ Ä‘Æ°á»£c hÆ°á»›ng dáº«n nhanh ${SUPPORT_PHONE}`
   ] : [
-    'Chúc mừng bạn đã đăng ký sử dụng DG Image Tools thành công!',
+    'ChÃºc má»«ng báº¡n Ä‘Ã£ Ä‘Äƒng kÃ½ sá»­ dá»¥ng DG Image Tools thÃ nh cÃ´ng!',
     '',
-    `Gói: ${order.planName}`,
-    `Tài khoản : ${order.email}`,
-    `Mật khẩu : ${password}`,
-    `Số ảnh được tạo: ${order.quotaTotal}`,
-    `Thời gian sử dụng : ${order.expiresAt}`,
-    `Link tải: ${USER_APP_DOWNLOAD_URL}`,
+    `GÃ³i: ${order.planName}`,
+    `TÃ i khoáº£n : ${order.email}`,
+    `Máº­t kháº©u : ${password}`,
+    `Sá»‘ áº£nh Ä‘Æ°á»£c táº¡o: ${order.quotaTotal}`,
+    `Thá»i gian sá»­ dá»¥ng : ${order.expiresAt}`,
+    `Link táº£i: ${USER_APP_DOWNLOAD_URL}`,
     `Link videos : ${GUIDE_VIDEO_URL}`,
-    `Nhóm Zalo hỗ trợ trả phí: ${ZALO_GROUP_URL}`,
+    `NhÃ³m Zalo há»— trá»£ tráº£ phÃ­: ${ZALO_GROUP_URL}`,
     '',
     '-----DG Media Holding-----',
-    `Hãy đăng nhập app bằng email này. Nếu cần hỗ trợ tạo tài khoản hoặc cài app, nhắn trực tiếp cho Đức để được hướng dẫn nhanh ${SUPPORT_PHONE}`
+    `HÃ£y Ä‘Äƒng nháº­p app báº±ng email nÃ y. Náº¿u cáº§n há»— trá»£ táº¡o tÃ i khoáº£n hoáº·c cÃ i app, nháº¯n trá»±c tiáº¿p cho Äá»©c Ä‘á»ƒ Ä‘Æ°á»£c hÆ°á»›ng dáº«n nhanh ${SUPPORT_PHONE}`
   ];
 
   return { subject, body: lines.join('\n'), htmlBody: buildCustomerEmailHtml({ order, password, kind }) };
@@ -981,6 +988,43 @@ const getFetchErrorMessage = (error) => [
   error.cause?.code
 ].filter(Boolean).join(' | ');
 
+const shouldTryNextImageTarget = (status, rawText = '') => {
+  if (!status) {
+    return true;
+  }
+
+  if ([408, 409, 425, 429, 500, 502, 503, 504].includes(Number(status))) {
+    return true;
+  }
+
+  const detail = String(rawText || '');
+  return /timeout|temporar|overload|rate limit|try again|server busy|fetch failed/i.test(detail)
+    && !/(invalid|unauthorized|forbidden|quota|billing|policy|content|safety|permission|api key)/i.test(detail);
+};
+
+const fetchWithTimeout = async (url, options = {}, timeoutMs = ROUTER_IMAGE_TIMEOUT_MS) => {
+  const timeout = Number(timeoutMs || 0);
+  if (!timeout || !Number.isFinite(timeout) || timeout <= 0) {
+    return fetch(url, options);
+  }
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(new Error('router image timeout')), timeout);
+
+  try {
+    return await fetch(url, { ...options, signal: controller.signal });
+  } catch (error) {
+    if (controller.signal.aborted) {
+      const timeoutError = new Error(`router image timeout after ${Math.round(timeout / 1000)}s`);
+      timeoutError.cause = error;
+      throw timeoutError;
+    }
+    throw error;
+  } finally {
+    clearTimeout(timer);
+  }
+};
+
 const fetchRouterImage = async (body) => {
   let upstream = null;
   let rawText = '';
@@ -993,7 +1037,7 @@ const fetchRouterImage = async (body) => {
     const targetKey = getRouterTargetKey(target);
     const payload = buildImagePayload(body, target);
     try {
-      upstream = await fetch(target.url, {
+      upstream = await fetchWithTimeout(target.url, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -1006,6 +1050,10 @@ const fetchRouterImage = async (body) => {
 
       if (upstream.ok) {
         preferredRouterImageEndpoint = target.name || target.url;
+        return { upstream, rawText, endpoint: target.url, target };
+      }
+
+      if (!shouldTryNextImageTarget(upstream.status, rawText)) {
         return { upstream, rawText, endpoint: target.url, target };
       }
 
@@ -1074,27 +1122,27 @@ const requireAuth = async (req, res, next) => {
     const token = header.startsWith('Bearer ') ? header.slice(7) : '';
 
     if (!token) {
-      return res.status(401).json({ message: 'Thiếu token đăng nhập.' });
+      return res.status(401).json({ message: 'Thiáº¿u token Ä‘Äƒng nháº­p.' });
     }
 
     const payload = jwt.verify(token, JWT_SECRET);
     const user = await getUserById(payload.sub);
 
     if (!user) {
-      return res.status(401).json({ message: 'Phiên đăng nhập không hợp lệ.' });
+      return res.status(401).json({ message: 'PhiÃªn Ä‘Äƒng nháº­p khÃ´ng há»£p lá»‡.' });
     }
 
     req.auth = payload;
     req.user = user;
     return next();
   } catch {
-    return res.status(401).json({ message: 'Phiên đăng nhập đã hết hạn.' });
+    return res.status(401).json({ message: 'PhiÃªn Ä‘Äƒng nháº­p Ä‘Ã£ háº¿t háº¡n.' });
   }
 };
 
 const requireAdmin = (req, res, next) => {
   if (req.user?.role !== 'admin') {
-    return res.status(403).json({ message: 'Không có quyền admin.' });
+    return res.status(403).json({ message: 'KhÃ´ng cÃ³ quyá»n admin.' });
   }
 
   if (req.user.twoFactorEnabled && !req.auth?.twoFactor) {
@@ -1468,15 +1516,15 @@ const listEmailHistoryHandler = async (req, res) => {
       const quotaUsed = Number(user?.quotaUsed || 0);
       const lastLoginAt = user?.lastLoginAt || null;
       const usageStatus = quotaUsed > 0
-        ? 'Đã sử dụng app'
+        ? 'ÄÃ£ sá»­ dá»¥ng app'
         : lastLoginAt
-          ? 'Đã đăng nhập, chưa tạo ảnh'
-          : 'Chưa đăng nhập';
+          ? 'ÄÃ£ Ä‘Äƒng nháº­p, chÆ°a táº¡o áº£nh'
+          : 'ChÆ°a Ä‘Äƒng nháº­p';
       const recommendedAction = quotaUsed > 0
-        ? 'Không cần xử lý'
+        ? 'KhÃ´ng cáº§n xá»­ lÃ½'
         : lastLoginAt
-          ? 'Nhắn hướng dẫn tạo ảnh đầu tiên'
-          : 'Gọi/Zalo nhắc khách kiểm tra email, spam và gửi lại thông tin đăng nhập nếu cần';
+          ? 'Nháº¯n hÆ°á»›ng dáº«n táº¡o áº£nh Ä‘áº§u tiÃªn'
+          : 'Gá»i/Zalo nháº¯c khÃ¡ch kiá»ƒm tra email, spam vÃ  gá»­i láº¡i thÃ´ng tin Ä‘Äƒng nháº­p náº¿u cáº§n';
 
       return {
         id: order.id,
