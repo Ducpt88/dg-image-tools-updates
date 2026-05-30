@@ -903,8 +903,12 @@ const getRouterTargetKey = (target) => {
     return isConfiguredSecret(target.key) ? target.key : '';
   }
 
-  if (target?.keyEnv && process.env[target.keyEnv]) {
+  if (target?.keyEnv) {
     return isConfiguredSecret(process.env[target.keyEnv]) ? process.env[target.keyEnv] : '';
+  }
+
+  if (isOpenAiEndpoint(target?.url, target?.provider)) {
+    return isConfiguredSecret(process.env.OPENAI_API_KEY) ? process.env.OPENAI_API_KEY : '';
   }
 
   return isConfiguredSecret(ROUTER_API_KEY) ? ROUTER_API_KEY : '';
@@ -1073,7 +1077,13 @@ const fetchRouterImage = async (body) => {
   let rawText = '';
   let lastFetchError = null;
   let lastTarget = null;
-  const targets = getRouterImageTargets();
+  const targets = getRouterImageTargets().filter((target) => Boolean(getRouterTargetKey(target)));
+
+  if (!targets.length) {
+    const error = new Error('Server chua cau hinh API key tao anh hop le.');
+    error.status = 503;
+    throw error;
+  }
 
   for (const target of targets) {
     lastTarget = target;
