@@ -21,6 +21,8 @@ const {
   recordSecurityEvent,
   listEvents,
   getStats,
+  getUpdatePolicy,
+  updateUpdatePolicy,
   createOrder,
   listOrders,
   getOrderByCode,
@@ -36,25 +38,27 @@ const JWT_SECRET = process.env.JWT_SECRET || DEFAULT_JWT_SECRET;
 const ROUTER_PROVIDER = String(process.env.ROUTER_PROVIDER || '').trim().toLowerCase();
 const OPENAI_IMAGE_ENDPOINT = 'https://api.openai.com/v1/images/generations';
 const configuredRouterImageEndpoint = String(process.env.ROUTER_IMAGE_ENDPOINT || '').trim();
+const isOpenAiEndpoint = (url, provider = '') => String(provider || '').toLowerCase() === 'openai'
+  || String(url || '').includes('api.openai.com');
 const isOpenAiImageProvider = configuredRouterImageEndpoint
-  ? configuredRouterImageEndpoint.includes('api.openai.com')
+  ? isOpenAiEndpoint(configuredRouterImageEndpoint, ROUTER_PROVIDER)
   : ROUTER_PROVIDER === 'openai';
 const ROUTER_IMAGE_ENDPOINT = configuredRouterImageEndpoint
   || (isOpenAiImageProvider ? OPENAI_IMAGE_ENDPOINT : 'http://localhost:20128/v1/images/generations');
 const ROUTER_IMAGE_FALLBACK_ENDPOINT = String(
-  process.env.ROUTER_IMAGE_FALLBACK_ENDPOINT
-  || (!isOpenAiImageProvider ? 'https://directly-ringtones-image-able.trycloudflare.com/v1/images/generations' : '')
+  process.env.ROUTER_IMAGE_FALLBACK_ENDPOINT || ''
 ).trim();
 const ROUTER_IMAGE_ENDPOINTS = [...new Set([
   ROUTER_IMAGE_ENDPOINT,
   ROUTER_IMAGE_FALLBACK_ENDPOINT
 ].filter(Boolean))];
 let preferredRouterImageEndpoint = process.env.ROUTER_IMAGE_PREFERRED_ENDPOINT
-  || (!isOpenAiImageProvider && ROUTER_IMAGE_FALLBACK_ENDPOINT ? ROUTER_IMAGE_FALLBACK_ENDPOINT : ROUTER_IMAGE_ENDPOINT);
+  || ROUTER_IMAGE_ENDPOINT;
 const ROUTER_IMAGE_MODEL = process.env.ROUTER_IMAGE_MODEL || (isOpenAiImageProvider ? 'gpt-image-1' : '');
 const ROUTER_QUOTA_ENDPOINT = process.env.ROUTER_QUOTA_ENDPOINT || '';
 const ROUTER_QUOTA_TOTAL = Number(process.env.ROUTER_QUOTA_TOTAL || 0);
 const ROUTER_API_KEY = process.env.ROUTER_API_KEY || '';
+const ROUTER_PROXY_API_KEY = process.env.ROUTER_PROXY_API_KEY || ROUTER_API_KEY;
 const DEFAULT_SHEETS_WEBHOOK_URL = 'https://script.google.com/macros/s/AKfycbxID7hjhZVqvorp0OI9yHTyZhBd-DBjpjqO73J7KQSyQpTQsY-WcGQnhhHADokMsUN3/exec';
 const SHEETS_WEBHOOK_URL = process.env.SHEETS_WEBHOOK_URL || DEFAULT_SHEETS_WEBHOOK_URL;
 const ADMIN_ALERT_EMAIL = process.env.ADMIN_ALERT_EMAIL || 'hoangvant77internet@gmail.com';
@@ -78,6 +82,15 @@ const ADMIN_PAGE_USER = String(process.env.ADMIN_PAGE_USER || 'admin@example.com
 const ADMIN_PAGE_PASSWORD = String(process.env.ADMIN_PAGE_PASSWORD || 'image-dg09');
 const ADMIN_PAGE_PROTECTION_ENABLED = process.env.ADMIN_PAGE_PROTECTION !== 'false';
 const ADMIN_2FA_ISSUER = process.env.ADMIN_2FA_ISSUER || 'DG Image Tools Admin';
+
+const isConfiguredSecret = (value) => {
+  const secret = String(value || '').trim();
+  if (!secret) {
+    return false;
+  }
+
+  return !/^(replace-with|change-this|your-|dummy|test|example|placeholder)/i.test(secret);
+};
 
 if (isProduction && (!process.env.JWT_SECRET || JWT_SECRET === DEFAULT_JWT_SECRET)) {
   throw new Error('Production requires a strong JWT_SECRET. Refusing to start with the default secret.');
@@ -111,7 +124,7 @@ app.use((req, res, next) => {
     res.setHeader('Vary', 'Origin');
   }
 
-  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PATCH,OPTIONS');
+  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,PATCH,OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization,X-Device-Id');
 
   if (req.method === 'OPTIONS') {
@@ -316,35 +329,34 @@ const buildCustomerEmailHtml = ({ order, password, kind }) => {
 const buildCustomerEmail = ({ order, password, kind }) => {
   const isTrial = kind === 'trial';
   const subject = isTrial
-    ? 'Tai khoan dung thu DG Image Tools da san sang - tao anh dau tien hom nay'
-    : 'Tai khoan DG Image Tools da kich hoat - bat dau tao anh dau tien';
-  const greeting = `Chao ${order.customerName || 'anh/chi'},`;
-  const intro = isTrial
-    ? 'Tai khoan dung thu DG Image Tools da san sang. Viec quan trong nhat la dang nhap va tao thu 1 anh dau tien trong hom nay de xem app co hop voi nhu cau lam thumbnail cua minh khong.'
-    : 'Tai khoan DG Image Tools cua anh/chi da duoc kich hoat. Hay dang nhap ngay, tao thu 1 anh dau tien va gui lai prompt/anh mau neu can Duc toi uu giup.';
-  const nextStep = isTrial
-    ? 'Neu chua thay email, khong cai duoc app hoac chua biet test prompt nao, hay nhan lai. Duc co the gui lai thong tin qua Zalo va goi y prompt theo kenh cua anh/chi.'
-    : 'Neu anh/chi lam nhieu kenh hoac can style thumbnail on dinh hon, nhan lai ngach/kenh dang lam de duoc goi y prompt mau.';
-  const lines = [
-    greeting,
+    ? 'Tài khoản dùng thử DG Image Tools của bạn đã sẵn sàng'
+    : 'Tài khoản DG Image Tools của bạn đã được kích hoạt';
+  const lines = isTrial ? [
+    'Chúc mừng bạn đã đăng ký sử dụng gói dùng thử 0đ DG Image Tools thành công!',
     '',
-    intro,
-    '',
-    `Goi: ${order.planName}`,
-    `Tai khoan: ${order.email}`,
-    `Mat khau: ${password}`,
-    `So anh duoc tao: ${order.quotaTotal}`,
-    `Han su dung: ${order.expiresAt}`,
-    `Link tai app: ${USER_APP_DOWNLOAD_URL}`,
-    `Video huong dan: ${GUIDE_VIDEO_URL}`,
-    ...(!isTrial ? [`Nhom Zalo ho tro tra phi: ${ZALO_GROUP_URL}`] : []),
-    '',
-    nextStep,
-    '',
-    'CTA: Tai app, dang nhap va tao anh dau tien hom nay.',
+    `Tài khoản : ${order.email}`,
+    `Mật khẩu : ${password}`,
+    `Số ảnh được tạo: ${order.quotaTotal}`,
+    `Thời gian sử dụng : ${order.expiresAt}`,
+    `Link tải: ${USER_APP_DOWNLOAD_URL}`,
+    `Link videos : ${GUIDE_VIDEO_URL}`,
     '',
     '-----DG Media Holding-----',
-    `Ho tro nhanh: ${SUPPORT_PHONE}`
+    `Hãy đăng nhập app bằng email này. Nếu cần hỗ trợ tạo tài khoản hoặc cài app, nhắn trực tiếp cho Đức để được hướng dẫn nhanh ${SUPPORT_PHONE}`
+  ] : [
+    'Chúc mừng bạn đã đăng ký sử dụng DG Image Tools thành công!',
+    '',
+    `Gói: ${order.planName}`,
+    `Tài khoản : ${order.email}`,
+    `Mật khẩu : ${password}`,
+    `Số ảnh được tạo: ${order.quotaTotal}`,
+    `Thời gian sử dụng : ${order.expiresAt}`,
+    `Link tải: ${USER_APP_DOWNLOAD_URL}`,
+    `Link videos : ${GUIDE_VIDEO_URL}`,
+    `Nhóm Zalo hỗ trợ trả phí: ${ZALO_GROUP_URL}`,
+    '',
+    '-----DG Media Holding-----',
+    `Hãy đăng nhập app bằng email này. Nếu cần hỗ trợ tạo tài khoản hoặc cài app, nhắn trực tiếp cho Đức để được hướng dẫn nhanh ${SUPPORT_PHONE}`
   ];
 
   return { subject, body: lines.join('\n'), htmlBody: buildCustomerEmailHtml({ order, password, kind }) };
@@ -838,13 +850,99 @@ const normalizeOpenAiImageModel = (model) => {
   return requested;
 };
 
-const buildImagePayload = (body) => {
-  if (isOpenAiImageProvider) {
+const normalizeTargetModel = (target, requestedModel) => {
+  if (target?.model) {
+    return target.model;
+  }
+
+  if (isOpenAiEndpoint(target?.url, target?.provider)) {
+    const requested = String(requestedModel || '').trim();
+    if (!requested || requested.startsWith('cx/')) {
+      return 'gpt-image-1';
+    }
+    return requested;
+  }
+
+  return requestedModel;
+};
+
+const parseRouterTargetsJson = () => {
+  const raw = String(process.env.ROUTER_IMAGE_TARGETS_JSON || process.env.ROUTER_IMAGE_ENDPOINTS_JSON || '').trim();
+  if (!raw) {
+    return [];
+  }
+
+  try {
+    const parsed = JSON.parse(raw);
+    return (Array.isArray(parsed) ? parsed : [parsed])
+      .map((target, index) => ({
+        name: String(target.name || target.id || `target-${index + 1}`),
+        url: String(target.url || target.endpoint || '').trim(),
+        provider: String(target.provider || '').trim().toLowerCase(),
+        model: String(target.model || '').trim(),
+        key: String(target.key || '').trim(),
+        keyEnv: String(target.keyEnv || target.key_env || '').trim()
+      }))
+      .filter((target) => target.url);
+  } catch (error) {
+    console.error('Invalid ROUTER_IMAGE_TARGETS_JSON:', error.message);
+    return [];
+  }
+};
+
+const getRouterTargetKey = (target) => {
+  if (target?.key) {
+    return isConfiguredSecret(target.key) ? target.key : '';
+  }
+
+  if (target?.keyEnv && process.env[target.keyEnv]) {
+    return isConfiguredSecret(process.env[target.keyEnv]) ? process.env[target.keyEnv] : '';
+  }
+
+  return isConfiguredSecret(ROUTER_API_KEY) ? ROUTER_API_KEY : '';
+};
+
+const legacyRouterTargets = () => ROUTER_IMAGE_ENDPOINTS.map((url, index) => ({
+  name: index === 0 ? 'primary' : `fallback-${index}`,
+  url,
+  provider: isOpenAiEndpoint(url, ROUTER_PROVIDER) ? 'openai' : ROUTER_PROVIDER,
+  model: index === 0 ? ROUTER_IMAGE_MODEL : '',
+  key: '',
+  keyEnv: ''
+}));
+
+const getRouterImageTargets = () => {
+  const parsedTargets = parseRouterTargetsJson();
+  const targets = parsedTargets.length ? parsedTargets : legacyRouterTargets();
+  const uniqueTargets = [];
+  const seen = new Set();
+
+  for (const target of targets) {
+    const dedupeKey = `${target.provider || ''}|${target.url}|${target.model || ''}|${target.keyEnv || ''}`;
+    if (!seen.has(dedupeKey)) {
+      seen.add(dedupeKey);
+      uniqueTargets.push(target);
+    }
+  }
+
+  const preferredIndex = uniqueTargets.findIndex((target) => target.url === preferredRouterImageEndpoint || target.name === preferredRouterImageEndpoint);
+  if (preferredIndex > 0) {
+    const [preferred] = uniqueTargets.splice(preferredIndex, 1);
+    uniqueTargets.unshift(preferred);
+  }
+
+  return uniqueTargets;
+};
+
+const hasRouterImageAuth = () => getRouterImageTargets().some((target) => Boolean(getRouterTargetKey(target)));
+
+const buildImagePayload = (body, target = null) => {
+  if (target ? isOpenAiEndpoint(target.url, target.provider) : isOpenAiImageProvider) {
     const quality = body.quality && body.quality !== 'auto' ? body.quality : undefined;
     const background = body.background && body.background !== 'auto' ? body.background : undefined;
 
     return cleanObject({
-      model: normalizeOpenAiImageModel(body.model),
+      model: target ? normalizeTargetModel(target, body.model) : normalizeOpenAiImageModel(body.model),
       prompt: body.prompt,
       n: body.n || 1,
       size: normalizeOpenAiImageSize(body.size),
@@ -856,7 +954,7 @@ const buildImagePayload = (body) => {
   }
 
   return cleanObject({
-    model: body.model,
+    model: target ? normalizeTargetModel(target, body.model) : body.model,
     prompt: body.prompt,
     n: body.n || 1,
     size: normalizeImageSize(body.size),
@@ -883,55 +981,54 @@ const getFetchErrorMessage = (error) => [
   error.cause?.code
 ].filter(Boolean).join(' | ');
 
-const getRouterImageEndpoints = () => [...new Set([
-  preferredRouterImageEndpoint,
-  ...ROUTER_IMAGE_ENDPOINTS
-].filter(Boolean))];
-
-const fetchRouterImage = async (payload) => {
+const fetchRouterImage = async (body) => {
   let upstream = null;
   let rawText = '';
   let lastFetchError = null;
-  let lastEndpoint = '';
-  const endpoints = getRouterImageEndpoints();
+  let lastTarget = null;
+  const targets = getRouterImageTargets();
 
-  for (const endpoint of endpoints) {
-    lastEndpoint = endpoint;
+  for (const target of targets) {
+    lastTarget = target;
+    const targetKey = getRouterTargetKey(target);
+    const payload = buildImagePayload(body, target);
     try {
-      upstream = await fetch(endpoint, {
+      upstream = await fetch(target.url, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${ROUTER_API_KEY}`,
-          Accept: isOpenAiImageProvider ? 'application/json' : 'text/event-stream'
+          ...(targetKey ? { Authorization: `Bearer ${targetKey}` } : {}),
+          Accept: isOpenAiEndpoint(target.url, target.provider) ? 'application/json' : 'text/event-stream'
         },
         body: JSON.stringify(payload)
       });
       rawText = await upstream.text();
 
       if (upstream.ok) {
-        preferredRouterImageEndpoint = endpoint;
-        return { upstream, rawText, endpoint };
+        preferredRouterImageEndpoint = target.name || target.url;
+        return { upstream, rawText, endpoint: target.url, target };
       }
 
-      if ((upstream.status < 500 && upstream.status !== 404) || endpoint === endpoints.at(-1)) {
-        return { upstream, rawText, endpoint };
+      if (target === targets.at(-1)) {
+        return { upstream, rawText, endpoint: target.url, target };
       }
     } catch (error) {
       lastFetchError = error;
-      if (endpoint === endpoints.at(-1)) {
-        error.endpoint = endpoint;
+      if (target === targets.at(-1)) {
+        error.endpoint = target.url;
+        error.targetName = target.name;
         throw error;
       }
     }
   }
 
   if (lastFetchError) {
-    lastFetchError.endpoint = lastEndpoint;
+    lastFetchError.endpoint = lastTarget?.url;
+    lastFetchError.targetName = lastTarget?.name;
     throw lastFetchError;
   }
 
-  return { upstream, rawText, endpoint: lastEndpoint };
+  return { upstream, rawText, endpoint: lastTarget?.url, target: lastTarget };
 };
 
 const parseRouterQuota = (data, fallbackUsed = 0) => {
@@ -1137,7 +1234,7 @@ const rawRouterImageProxyHandler = async (req, res) => {
     const header = req.get('authorization') || '';
     const token = header.startsWith('Bearer ') ? header.slice(7) : '';
 
-    if (!ROUTER_API_KEY || token !== ROUTER_API_KEY) {
+    if (!isConfiguredSecret(ROUTER_PROXY_API_KEY) || token !== ROUTER_PROXY_API_KEY) {
       return res.status(401).json({ message: 'Unauthorized.' });
     }
 
@@ -1154,12 +1251,19 @@ const imageGenerationHandler = async (req, res) => {
   try {
     await prepareUserForImage({ userId: req.user.id, deviceId });
 
-    if (!ROUTER_API_KEY) {
-      throw new Error('Server chưa cấu hình ROUTER_API_KEY.');
+    if (!hasRouterImageAuth()) {
+      const event = await recordImageEvent({
+        userId: req.user.id,
+        ok: false,
+        prompt: req.body.prompt,
+        error: 'Server chua cau hinh API key tao anh hop le.',
+        deviceId
+      });
+      await sendSheetEvent(event);
+      return res.status(503).json({ message: 'Server chua cau hinh API key tao anh hop le.' });
     }
 
-    const payload = buildImagePayload(req.body);
-    const { upstream, rawText } = await fetchRouterImage(payload);
+    const { upstream, rawText } = await fetchRouterImage(req.body);
 
     if (!upstream.ok) {
       const event = await recordImageEvent({
@@ -1170,7 +1274,7 @@ const imageGenerationHandler = async (req, res) => {
         deviceId
       });
       await sendSheetEvent(event);
-      return res.status(upstream.status).type('application/json').send(rawText || JSON.stringify({ message: 'Tạo ảnh thất bại.' }));
+      return res.status(upstream.status).type('application/json').send(rawText || JSON.stringify({ message: 'Tao anh that bai.' }));
     }
 
     const event = await recordImageEvent({
@@ -1206,8 +1310,8 @@ const statsHandler = async (_req, res) => {
 const routerQuotaHandler = async (_req, res) => {
   const stats = await getStats();
 
-  if (!ROUTER_API_KEY) {
-    return res.status(503).json({ message: 'Server chua cau hinh ROUTER_API_KEY.' });
+  if (!isConfiguredSecret(ROUTER_API_KEY)) {
+    return res.status(503).json({ message: 'Server chua cau hinh API key tao anh hop le.' });
   }
 
   if (ROUTER_QUOTA_ENDPOINT) {
@@ -1338,6 +1442,21 @@ const listOrdersHandler = async (req, res) => {
   res.json({ orders: await listOrders(req.query.limit) });
 };
 
+const getUpdatePolicyHandler = async (req, res) => {
+  const policy = await getUpdatePolicy();
+  const flavor = String(req.query.flavor || '').toLowerCase();
+  const channelAllowed = policy.channel === 'all' || !flavor || policy.channel === flavor;
+  res.json({ updatePolicy: { ...policy, enabled: policy.enabled && channelAllowed } });
+};
+
+const updatePolicyHandler = async (req, res) => {
+  try {
+    res.json({ updatePolicy: await updateUpdatePolicy(req.body || {}) });
+  } catch (error) {
+    res.status(400).json({ message: error.message });
+  }
+};
+
 const listEmailHistoryHandler = async (req, res) => {
   const orders = await listOrders(req.query.limit || 300);
   const users = await listUsers();
@@ -1434,6 +1553,7 @@ app.post(`${USER_API}/auth/2fa/verify`, verifyTwoFactorHandler);
 app.get(`${USER_API}/auth/me`, requireAuth, meHandler);
 app.post('/v1/images/generations', rawRouterImageProxyHandler);
 app.post(`${USER_API}/images/generations`, requireAuth, imageGenerationHandler);
+app.get('/api/9router/update-policy', getUpdatePolicyHandler);
 
 app.get(`${ADMIN_API}/stats`, allowLocalAdmin, requireAdminAccess, statsHandler);
 app.get(`${ADMIN_API}/router-quota`, allowLocalAdmin, requireAdminAccess, routerQuotaHandler);
@@ -1443,6 +1563,7 @@ app.patch(`${ADMIN_API}/users/:id`, allowLocalAdmin, requireAdminAccess, updateU
 app.get(`${ADMIN_API}/events`, allowLocalAdmin, requireAdminAccess, eventsHandler);
 app.get(`${ADMIN_API}/orders`, allowLocalAdmin, requireAdminAccess, listOrdersHandler);
 app.get(`${ADMIN_API}/email-history`, allowLocalAdmin, requireAdminAccess, listEmailHistoryHandler);
+app.put(`${ADMIN_API}/update-policy`, allowLocalAdmin, requireAdminAccess, updatePolicyHandler);
 app.post('/api/sales/orders', createOrderHandler);
 app.get('/api/sales/orders/:code/payment-status', paymentStatusHandler);
 app.post('/api/sepay/webhook', sepayWebhookHandler);
@@ -1454,6 +1575,7 @@ app.post('/api/auth/login', loginHandler);
 app.post('/api/auth/2fa/verify', verifyTwoFactorHandler);
 app.get('/api/auth/me', requireAuth, meHandler);
 app.post('/api/images/generations', requireAuth, imageGenerationHandler);
+app.get('/api/update-policy', getUpdatePolicyHandler);
 app.get('/api/admin/stats', allowLocalAdmin, requireAdminAccess, statsHandler);
 app.get('/api/admin/router-quota', allowLocalAdmin, requireAdminAccess, routerQuotaHandler);
 app.get('/api/admin/users', allowLocalAdmin, requireAdminAccess, listUsersHandler);
@@ -1462,6 +1584,7 @@ app.patch('/api/admin/users/:id', allowLocalAdmin, requireAdminAccess, updateUse
 app.get('/api/admin/events', allowLocalAdmin, requireAdminAccess, eventsHandler);
 app.get('/api/admin/orders', allowLocalAdmin, requireAdminAccess, listOrdersHandler);
 app.get('/api/admin/email-history', allowLocalAdmin, requireAdminAccess, listEmailHistoryHandler);
+app.put('/api/admin/update-policy', allowLocalAdmin, requireAdminAccess, updatePolicyHandler);
 
 app.use('/image/assets', express.static(path.join(IMAGE_SITE_DIR, 'assets'), {
   maxAge: '7d',

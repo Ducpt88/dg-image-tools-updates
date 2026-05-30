@@ -29,6 +29,44 @@ ROUTER_API_KEY=<old 9router api key>
 SITE_IMAGE_URL=https://ducpt.com/image
 ```
 
+For a backend that must keep creating images after the local computer is turned off,
+do not use `trycloudflare.com` or any local tunnel URL. Use a server-side provider
+endpoint instead:
+
+```env
+ROUTER_PROVIDER=openai
+ROUTER_IMAGE_ENDPOINT=https://api.openai.com/v1/images/generations
+ROUTER_IMAGE_PREFERRED_ENDPOINT=primary-openai
+ROUTER_IMAGE_FALLBACK_ENDPOINT=
+ROUTER_IMAGE_MODEL=gpt-image-1
+ROUTER_API_KEY=<server-side provider api key>
+```
+
+Recommended high-availability setup:
+
+```env
+ROUTER_PROXY_API_KEY=<optional raw proxy access key>
+OPENAI_API_KEY=<OpenAI key for primary>
+VPS_ROUTER_API_KEY=<9router key on backup VPS>
+EMERGENCY_ROUTER_API_KEY=<9router key for emergency tunnel>
+ROUTER_IMAGE_PREFERRED_ENDPOINT=primary-openai
+ROUTER_IMAGE_TARGETS_JSON=[{"name":"primary-openai","provider":"openai","url":"https://api.openai.com/v1/images/generations","model":"gpt-image-1","keyEnv":"OPENAI_API_KEY"},{"name":"fallback-vps-9router","provider":"9router","url":"https://backup-vps.example.com/v1/images/generations","model":"cx/gpt-5.5-image","keyEnv":"VPS_ROUTER_API_KEY"},{"name":"emergency-local-tunnel","provider":"9router","url":"https://replace-current-tunnel.trycloudflare.com/v1/images/generations","model":"cx/gpt-5.5-image","keyEnv":"EMERGENCY_ROUTER_API_KEY"}]
+```
+
+The backend tries targets in order, remembers the latest successful target while the
+process is running, and falls through to the next target on network errors or non-OK
+upstream responses.
+
+If running 9router directly on the VPS, use the VPS-local router instead:
+
+```env
+ROUTER_PROVIDER=9router
+ROUTER_IMAGE_ENDPOINT=http://127.0.0.1:20128/v1/images/generations
+ROUTER_IMAGE_PREFERRED_ENDPOINT=http://127.0.0.1:20128/v1/images/generations
+ROUTER_IMAGE_FALLBACK_ENDPOINT=
+ROUTER_API_KEY=<9router api key on the VPS>
+```
+
 Optional:
 
 ```env

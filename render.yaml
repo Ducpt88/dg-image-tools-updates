@@ -1,4 +1,4 @@
-services:
+﻿services:
   - type: web
     name: ducpt-9router-api
     env: node
@@ -26,6 +26,20 @@ services:
       - key: ALLOW_LOCAL_ADMIN
         value: "false"
       - key: ROUTER_IMAGE_ENDPOINT
+        value: https://api.openai.com/v1/images/generations
+      - key: ROUTER_IMAGE_PREFERRED_ENDPOINT
+        value: primary-openai
+      - key: ROUTER_IMAGE_FALLBACK_ENDPOINT
+        value: ""
+      - key: ROUTER_IMAGE_TARGETS_JSON
+        sync: false
+      - key: ROUTER_PROXY_API_KEY
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: VPS_ROUTER_API_KEY
+        sync: false
+      - key: EMERGENCY_ROUTER_API_KEY
         sync: false
       - key: ROUTER_API_KEY
         sync: false

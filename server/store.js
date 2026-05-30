@@ -7,13 +7,70 @@ const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, 'data');
 const DB_FILE = path.join(DATA_DIR, 'db.json');
 const BACKUP_DIR = path.join(DATA_DIR, 'backups');
 const MAX_BACKUPS = Number(process.env.DATA_BACKUP_LIMIT || 80);
-const FALLBACK_ADMIN_EMAIL = 'admin@example.com';
-const FALLBACK_ADMIN_PASSWORD = 'image-dg09';
+
+const ADMIN_EMAILS = new Set([
+  'admin@example.com',
+  'hoangvant77internet@gmail.com'
+]);
+const ADMIN_QUOTA_TOTAL = 999999999;
+const ADMIN_DEVICE_LIMIT = 999999;
+const DEFAULT_ADMIN_PASSWORD = process.env.DEFAULT_ADMIN_PASSWORD || '';
+
+const getConfiguredAdminCredentials = () => {
+  const configuredEmail = String(process.env.ADMIN_EMAIL || '').trim().toLowerCase();
+  const configuredPassword = process.env.ADMIN_PASSWORD || '';
+  const credentials = DEFAULT_ADMIN_PASSWORD
+    ? [...ADMIN_EMAILS].map((email) => ({ email, password: DEFAULT_ADMIN_PASSWORD }))
+    : [];
+
+  if (configuredEmail && configuredPassword) {
+    const existing = credentials.find((item) => item.email === configuredEmail);
+    if (existing) {
+      existing.password = configuredPassword;
+    } else {
+      credentials.push({ email: configuredEmail, password: configuredPassword });
+    }
+  }
+
+  return credentials;
+};
+
+const isUnrestrictedAdmin = (user) => (
+  user?.role === 'admin' || ADMIN_EMAILS.has(String(user?.email || '').trim().toLowerCase())
+);
+
+const normalizeAdminUser = (user) => {
+  if (!isUnrestrictedAdmin(user)) {
+    return user;
+  }
+
+  user.role = 'admin';
+  user.status = 'active';
+  user.quotaTotal = ADMIN_QUOTA_TOTAL;
+  user.quotaUsed = 0;
+  user.expiresAt = null;
+  user.deviceLimit = ADMIN_DEVICE_LIMIT;
+  user.devices ||= [];
+  return user;
+};
+
 
 const defaultDb = {
   users: [],
   events: [],
-  orders: []
+  orders: [],
+  updatePolicy: {
+    enabled: false,
+    channel: 'user',
+    latestVersion: '',
+    minimumVersion: '',
+    forceUpdate: false,
+    installerUrl: '',
+    sha512: '',
+    releaseNotes: '',
+    rolloutPercent: 100,
+    updatedAt: null
+  }
 };
 
 const readDb = async () => {
@@ -69,12 +126,13 @@ const getStorageInfo = () => ({
   backupLimit: MAX_BACKUPS
 });
 
-const publicUser = (user) => ({
+const publicUser = (user) => {
+  normalizeAdminUser(user);
+  return {
   id: user.id,
   email: user.email,
   role: user.role,
   status: user.status,
-  salesAccountNo: user.salesAccountNo || null,
   planName: user.planName || 'Gói tháng',
   monthlyPrice: Number(user.monthlyPrice || 0),
   paymentStatus: user.paymentStatus || 'paid',
@@ -82,57 +140,13 @@ const publicUser = (user) => ({
   quotaUsed: user.quotaUsed,
   quotaRemaining: Math.max(0, Number(user.quotaTotal || 0) - Number(user.quotaUsed || 0)),
   quotaUnit: 'ảnh',
-  durationDays: Number(user.durationDays || 0),
-  activatedAt: user.activatedAt || null,
   expiresAt: user.expiresAt,
   deviceLimit: user.deviceLimit,
   devices: user.devices || [],
   createdAt: user.createdAt,
   updatedAt: user.updatedAt,
-  lastLoginAt: user.lastLoginAt,
-  twoFactorEnabled: Boolean(user.twoFactorEnabled)
-});
-
-const addDaysIso = (startIso, days) => {
-  const duration = Number(days || 0);
-  if (!Number.isFinite(duration) || duration <= 0) {
-    return null;
-  }
-
-  const start = new Date(startIso);
-  start.setUTCDate(start.getUTCDate() + duration);
-  return start.toISOString();
-};
-
-const getNextSalesAccountNo = (users = []) => {
-  const maxAssigned = users.reduce((max, user) => Math.max(max, Number(user.salesAccountNo || 0)), 0);
-  if (maxAssigned > 0) {
-    return maxAssigned + 1;
-  }
-
-  return users.filter((user) => user.role !== 'admin').length + 1;
-};
-
-const getSalesAccountPassword = (accountNo) => `image-dg${Number(accountNo || 1)}`;
-
-const activateUserIfNeeded = (user, nowIso = new Date().toISOString()) => {
-  if (!user || user.role === 'admin') {
-    return false;
-  }
-
-  let changed = false;
-  if (!user.activatedAt) {
-    user.activatedAt = nowIso;
-    changed = true;
-  }
-
-  const durationDays = Number(user.durationDays || 0);
-  if (durationDays > 0 && !user.expiresAt) {
-    user.expiresAt = addDaysIso(user.activatedAt, durationDays);
-    changed = true;
-  }
-
-  return changed;
+  lastLoginAt: user.lastLoginAt
+  };
 };
 
 const findUserByEmail = async (email) => {
@@ -143,78 +157,37 @@ const findUserByEmail = async (email) => {
 
 const ensureAdminUser = async () => {
   const db = await readDb();
-  const ensureAdmin = async (email, password) => {
-    const adminEmail = String(email || '').trim().toLowerCase();
-    const adminPassword = String(password || '');
+  const now = new Date().toISOString();
 
-    if (!adminEmail || !adminPassword) {
-      return false;
+  for (const { email, password } of getConfiguredAdminCredentials()) {
+    const existing = db.users.find((user) => user.email === email);
+    if (existing) {
+      normalizeAdminUser(existing);
+      if (!(await bcrypt.compare(password, existing.passwordHash || ''))) {
+        existing.passwordHash = await bcrypt.hash(password, 12);
+      }
+      existing.updatedAt = now;
+      continue;
     }
 
-    const existing = db.users.find((user) => user.email === adminEmail);
-    if (!existing) {
-      const now = new Date().toISOString();
-      db.users.push({
-        id: crypto.randomUUID(),
-        email: adminEmail,
-        passwordHash: await bcrypt.hash(adminPassword, 12),
-        role: 'admin',
-        status: 'active',
-        quotaTotal: 999999,
-        quotaUsed: 0,
-        durationDays: 0,
-        activatedAt: null,
-        expiresAt: null,
-        deviceLimit: 5,
-        devices: [],
-        createdAt: now,
-        updatedAt: now,
-        lastLoginAt: null
-      });
-      return true;
-    }
-
-    let changed = false;
-
-    if (!(await bcrypt.compare(adminPassword, existing.passwordHash || ''))) {
-      existing.passwordHash = await bcrypt.hash(adminPassword, 12);
-      changed = true;
-    }
-
-    if (existing.role !== 'admin') {
-      existing.role = 'admin';
-      changed = true;
-    }
-
-    if (existing.status !== 'active') {
-      existing.status = 'active';
-      changed = true;
-    }
-
-    if (Number(existing.quotaTotal || 0) < 999999) {
-      existing.quotaTotal = 999999;
-      changed = true;
-    }
-
-    if (Number(existing.deviceLimit || 0) < 999) {
-      existing.deviceLimit = 999;
-      changed = true;
-    }
-
-    if (changed) {
-      existing.updatedAt = new Date().toISOString();
-    }
-
-    return changed;
-  };
-
-  let changed = false;
-  changed = (await ensureAdmin(process.env.ADMIN_EMAIL, process.env.ADMIN_PASSWORD)) || changed;
-  changed = (await ensureAdmin(FALLBACK_ADMIN_EMAIL, FALLBACK_ADMIN_PASSWORD)) || changed;
-
-  if (changed) {
-    await writeDb(db);
+    db.users.push({
+      id: crypto.randomUUID(),
+      email,
+      passwordHash: await bcrypt.hash(password, 12),
+      role: 'admin',
+      status: 'active',
+      quotaTotal: ADMIN_QUOTA_TOTAL,
+      quotaUsed: 0,
+      expiresAt: null,
+      deviceLimit: ADMIN_DEVICE_LIMIT,
+      devices: [],
+      createdAt: now,
+      updatedAt: now,
+      lastLoginAt: null
+    });
   }
+
+  await writeDb(db);
 };
 
 const createUser = async ({
@@ -225,7 +198,6 @@ const createUser = async ({
   monthlyPrice = 99000,
   paymentStatus = 'paid',
   quotaTotal = 100,
-  durationDays = 30,
   expiresAt = null,
   deviceLimit = 1
 }) => {
@@ -252,8 +224,6 @@ const createUser = async ({
     paymentStatus,
     quotaTotal: Number(quotaTotal) || 0,
     quotaUsed: 0,
-    durationDays: Number(durationDays) || 0,
-    activatedAt: null,
     expiresAt: expiresAt || null,
     deviceLimit: Number(deviceLimit) || 1,
     devices: [],
@@ -264,69 +234,6 @@ const createUser = async ({
   db.users.push(user);
   await writeDb(db);
   return publicUser(user);
-};
-
-const createOrUpdateSalesUser = async ({
-  email,
-  password = '',
-  planName = 'Goi thang',
-  monthlyPrice = 99000,
-  paymentStatus = 'paid',
-  quotaTotal = 100,
-  expiresAt = null,
-  deviceLimit = 1
-}) => {
-  const db = await readDb();
-  const normalized = String(email || '').trim().toLowerCase();
-
-  if (!normalized) {
-    throw new Error('Email la bat buoc.');
-  }
-
-  const now = new Date().toISOString();
-  let user = db.users.find((item) => item.email === normalized);
-  const salesAccountNo = user?.salesAccountNo || getNextSalesAccountNo(db.users);
-  const accountPassword = password || getSalesAccountPassword(salesAccountNo);
-  const passwordHash = await bcrypt.hash(accountPassword, 12);
-
-  if (user) {
-    user.salesAccountNo = salesAccountNo;
-    user.passwordHash = passwordHash;
-    user.status = 'active';
-    user.role = user.role || 'user';
-    user.planName = planName;
-    user.monthlyPrice = Number(monthlyPrice) || 0;
-    user.paymentStatus = paymentStatus;
-    user.quotaTotal = Math.max(Number(user.quotaTotal || 0), Number(quotaTotal || 0));
-    user.quotaUsed = Number(user.quotaUsed || 0);
-    user.expiresAt = expiresAt || user.expiresAt || null;
-    user.deviceLimit = Math.max(Number(user.deviceLimit || 1), Number(deviceLimit || 1));
-    user.updatedAt = now;
-  } else {
-    user = {
-      id: crypto.randomUUID(),
-      email: normalized,
-      salesAccountNo,
-      passwordHash,
-      role: 'user',
-      status: 'active',
-      planName,
-      monthlyPrice: Number(monthlyPrice) || 0,
-      paymentStatus,
-      quotaTotal: Number(quotaTotal) || 0,
-      quotaUsed: 0,
-      expiresAt: expiresAt || null,
-      deviceLimit: Number(deviceLimit) || 1,
-      devices: [],
-      createdAt: now,
-      updatedAt: now,
-      lastLoginAt: null
-    };
-    db.users.push(user);
-  }
-
-  await writeDb(db);
-  return { ...publicUser(user), accountPassword };
 };
 
 const publicOrder = (order) => ({
@@ -344,15 +251,13 @@ const publicOrder = (order) => ({
   status: order.status || 'pending_payment',
   transferContent: order.transferContent,
   note: order.note || '',
-  createdAt: order.createdAt,
-  updatedAt: order.updatedAt,
   paidAt: order.paidAt || null,
-  payment: order.payment || null,
-  accountEmail: order.accountEmail || '',
-  accountUserId: order.accountUserId || '',
-  accountCreatedAt: order.accountCreatedAt || null,
+  expiresAt: order.expiresAt || null,
+  accountEmail: order.accountEmail || null,
+  accountUserId: order.accountUserId || null,
   customerEmailSentAt: order.customerEmailSentAt || null,
-  expiresAt: order.expiresAt || null
+  createdAt: order.createdAt,
+  updatedAt: order.updatedAt
 });
 
 const createOrder = async ({
@@ -411,57 +316,88 @@ const listOrders = async (limit = 200) => {
 
 const getOrderByCode = async (code) => {
   const db = await readDb();
-  const cleanCode = String(code || '').trim();
-  const order = (db.orders || []).find((item) => item.code === cleanCode || item.transferContent === cleanCode);
+  const normalized = String(code || '').trim().toUpperCase();
+  const order = (db.orders || []).find((item) => String(item.code || '').toUpperCase() === normalized);
   return order ? publicOrder(order) : null;
 };
 
 const markOrderPaid = async (code, payment = {}) => {
   const db = await readDb();
-  const cleanCode = String(code || '').trim();
-  const order = (db.orders || []).find((item) => item.code === cleanCode || item.transferContent === cleanCode);
-
+  const normalized = String(code || '').trim().toUpperCase();
+  const order = (db.orders || []).find((item) => String(item.code || '').toUpperCase() === normalized);
   if (!order) {
-    throw new Error('Order not found.');
+    throw new Error('Khong tim thay don hang.');
   }
-
   const now = new Date().toISOString();
   order.status = 'paid';
   order.paidAt = order.paidAt || now;
-  order.payment = {
-    ...(order.payment || {}),
-    ...payment,
-    confirmedAt: now
-  };
+  order.payment = { ...(order.payment || {}), ...payment, updatedAt: now };
   order.updatedAt = now;
   await writeDb(db);
   return publicOrder(order);
 };
 
-const attachOrderAccount = async (code, { user, emailedAt = null, expiresAt = null } = {}) => {
+const attachOrderAccount = async (code, payload = {}) => {
   const db = await readDb();
-  const cleanCode = String(code || '').trim();
-  const order = (db.orders || []).find((item) => item.code === cleanCode || item.transferContent === cleanCode);
-
+  const normalized = String(code || '').trim().toUpperCase();
+  const order = (db.orders || []).find((item) => String(item.code || '').toUpperCase() === normalized);
   if (!order) {
-    throw new Error('Order not found.');
+    throw new Error('Khong tim thay don hang.');
   }
-
   const now = new Date().toISOString();
-  if (user) {
-    order.accountEmail = user.email;
-    order.accountUserId = user.id;
-    order.accountCreatedAt = order.accountCreatedAt || now;
+  if (payload.user) {
+    order.accountUserId = payload.user.id;
+    order.accountEmail = payload.user.email;
   }
-  if (emailedAt) {
-    order.customerEmailSentAt = emailedAt;
-  }
-  if (expiresAt) {
-    order.expiresAt = expiresAt;
-  }
+  if (payload.expiresAt) order.expiresAt = payload.expiresAt;
+  if (payload.emailedAt) order.customerEmailSentAt = payload.emailedAt;
   order.updatedAt = now;
   await writeDb(db);
   return publicOrder(order);
+};
+
+const createOrUpdateSalesUser = async ({
+  email,
+  planName,
+  monthlyPrice,
+  paymentStatus,
+  quotaTotal,
+  expiresAt,
+  deviceLimit
+}) => {
+  const db = await readDb();
+  const normalized = String(email || '').trim().toLowerCase();
+  if (!normalized) {
+    throw new Error('Email la bat buoc.');
+  }
+  const now = new Date().toISOString();
+  const accountPassword = crypto.randomBytes(6).toString('base64url');
+  let user = db.users.find((item) => item.email === normalized);
+  if (!user) {
+    user = {
+      id: crypto.randomUUID(),
+      email: normalized,
+      passwordHash: '',
+      role: 'user',
+      status: 'active',
+      quotaUsed: 0,
+      devices: [],
+      createdAt: now,
+      lastLoginAt: null
+    };
+    db.users.push(user);
+  }
+  user.passwordHash = await bcrypt.hash(accountPassword, 12);
+  user.planName = planName || user.planName || 'Goi thang';
+  user.monthlyPrice = Number(monthlyPrice || user.monthlyPrice || 0);
+  user.paymentStatus = paymentStatus || user.paymentStatus || 'paid';
+  user.quotaTotal = Number(quotaTotal || user.quotaTotal || 0);
+  user.expiresAt = expiresAt || user.expiresAt || null;
+  user.deviceLimit = Number(deviceLimit || user.deviceLimit || 1);
+  user.status = 'active';
+  user.updatedAt = now;
+  await writeDb(db);
+  return { ...publicUser(user), accountPassword };
 };
 
 const updateUser = async (id, changes) => {
@@ -483,15 +419,11 @@ const updateUser = async (id, changes) => {
     user.email = normalized;
   }
 
-  ['role', 'status', 'planName', 'monthlyPrice', 'paymentStatus', 'quotaTotal', 'quotaUsed', 'durationDays', 'activatedAt', 'expiresAt', 'deviceLimit'].forEach((key) => {
+  ['role', 'status', 'planName', 'monthlyPrice', 'paymentStatus', 'quotaTotal', 'quotaUsed', 'expiresAt', 'deviceLimit'].forEach((key) => {
     if (Object.hasOwn(changes, key)) {
-      user[key] = ['monthlyPrice', 'quotaTotal', 'quotaUsed', 'durationDays', 'deviceLimit'].includes(key) ? Number(changes[key]) : changes[key];
+      user[key] = ['monthlyPrice', 'quotaTotal', 'quotaUsed', 'deviceLimit'].includes(key) ? Number(changes[key]) : changes[key];
     }
   });
-
-  if (Object.hasOwn(changes, 'durationDays') && user.activatedAt && !Object.hasOwn(changes, 'expiresAt')) {
-    user.expiresAt = addDaysIso(user.activatedAt, user.durationDays);
-  }
 
   if (changes.password) {
     user.passwordHash = await bcrypt.hash(changes.password, 12);
@@ -506,35 +438,22 @@ const updateUser = async (id, changes) => {
   return publicUser(user);
 };
 
-const setAdminTwoFactor = async (id, { secret, enabled = true }) => {
-  const db = await readDb();
-  const user = db.users.find((item) => item.id === id);
-
-  if (!user || user.role !== 'admin') {
-    throw new Error('Khong tim thay tai khoan admin.');
-  }
-
-  user.twoFactorSecret = String(secret || '').trim();
-  user.twoFactorEnabled = Boolean(enabled && user.twoFactorSecret);
-  user.updatedAt = new Date().toISOString();
-  await writeDb(db);
-  return publicUser(user);
-};
-
 const validateUserForUse = (user, deviceId, quotaCost = 1) => {
+  normalizeAdminUser(user);
+
   if (!user || user.status !== 'active') {
     throw new Error('Tài khoản đã bị khóa hoặc không tồn tại.');
   }
 
-  if (user.expiresAt && new Date(user.expiresAt).getTime() < Date.now()) {
+  if (!isUnrestrictedAdmin(user) && user.expiresAt && new Date(user.expiresAt).getTime() < Date.now()) {
     throw new Error('Tài khoản đã hết hạn.');
   }
 
-  if ((Number(user.quotaUsed || 0) + Number(quotaCost || 1)) > Number(user.quotaTotal || 0)) {
+  if (!isUnrestrictedAdmin(user) && (Number(user.quotaUsed || 0) + Number(quotaCost || 1)) > Number(user.quotaTotal || 0)) {
     throw new Error('Tài khoản đã hết quota tạo ảnh.');
   }
 
-  if (deviceId) {
+  if (!isUnrestrictedAdmin(user) && deviceId) {
     user.devices ||= [];
     if (!user.devices.includes(deviceId)) {
       if (user.devices.length >= Number(user.deviceLimit || 1)) {
@@ -554,27 +473,12 @@ const authenticateUser = async ({ email, password, deviceId }) => {
     throw new Error('Email hoặc mật khẩu không đúng.');
   }
 
-  const now = new Date().toISOString();
-  activateUserIfNeeded(user, now);
+  normalizeAdminUser(user);
   validateUserForUse(user, deviceId);
-  user.lastLoginAt = now;
+  user.lastLoginAt = new Date().toISOString();
   user.updatedAt = user.lastLoginAt;
   await writeDb(db);
   return publicUser(user);
-};
-
-const prepareUserForImage = async ({ userId, deviceId, quotaCost = 1 }) => {
-  const db = await readDb();
-  const user = db.users.find((item) => item.id === userId);
-  const now = new Date().toISOString();
-
-  activateUserIfNeeded(user, now);
-  validateUserForUse(user, deviceId, quotaCost);
-  if (user) {
-    user.updatedAt = now;
-  }
-  await writeDb(db);
-  return user ? publicUser(user) : null;
 };
 
 const getUserById = async (id) => {
@@ -584,6 +488,8 @@ const getUserById = async (id) => {
 
 const listUsers = async () => {
   const db = await readDb();
+  db.users.forEach(normalizeAdminUser);
+  await writeDb(db);
   return db.users.map(publicUser);
 };
 
@@ -680,6 +586,58 @@ const getStats = async () => {
   };
 };
 
+const prepareUserForImage = async ({ userId, deviceId, quotaCost = 1 }) => {
+  const db = await readDb();
+  const user = db.users.find((item) => item.id === userId);
+  validateUserForUse(user, deviceId, quotaCost);
+  await writeDb(db);
+  return publicUser(user);
+};
+
+const setAdminTwoFactor = async (id, { secret, enabled }) => {
+  const db = await readDb();
+  const user = db.users.find((item) => item.id === id);
+  if (!user) {
+    throw new Error('Khong tim thay tai khoan admin.');
+  }
+  user.twoFactorSecret = secret || user.twoFactorSecret || '';
+  user.twoFactorEnabled = Boolean(enabled);
+  user.updatedAt = new Date().toISOString();
+  await writeDb(db);
+  return publicUser(user);
+};
+
+const normalizeUpdatePolicy = (policy = {}) => ({
+  enabled: Boolean(policy.enabled),
+  channel: ['user', 'admin', 'all'].includes(String(policy.channel || '').toLowerCase())
+    ? String(policy.channel || '').toLowerCase()
+    : 'user',
+  latestVersion: String(policy.latestVersion || '').trim(),
+  minimumVersion: String(policy.minimumVersion || '').trim(),
+  forceUpdate: Boolean(policy.forceUpdate),
+  installerUrl: String(policy.installerUrl || '').trim(),
+  sha512: String(policy.sha512 || '').trim(),
+  releaseNotes: String(policy.releaseNotes || '').slice(0, 2000),
+  rolloutPercent: Math.min(100, Math.max(0, Number(policy.rolloutPercent ?? 100) || 0)),
+  updatedAt: policy.updatedAt || null
+});
+
+const getUpdatePolicy = async () => {
+  const db = await readDb();
+  return normalizeUpdatePolicy(db.updatePolicy || defaultDb.updatePolicy);
+};
+
+const updateUpdatePolicy = async (changes = {}) => {
+  const db = await readDb();
+  db.updatePolicy = normalizeUpdatePolicy({
+    ...(db.updatePolicy || defaultDb.updatePolicy),
+    ...changes,
+    updatedAt: new Date().toISOString()
+  });
+  await writeDb(db);
+  return db.updatePolicy;
+};
+
 module.exports = {
   ensureAdminUser,
   authenticateUser,
@@ -701,5 +659,7 @@ module.exports = {
   listOrders,
   getOrderByCode,
   markOrderPaid,
-  attachOrderAccount
+  attachOrderAccount,
+  getUpdatePolicy,
+  updateUpdatePolicy
 };
