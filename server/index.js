@@ -55,9 +55,9 @@ const EMERGENCY_ROUTER_IMAGE_ENDPOINT = String(
   || 'https://chatty-kids-like.loca.lt/v1/images/generations'
 ).trim();
 const ROUTER_IMAGE_ENDPOINTS = [...new Set([
-  ROUTER_IMAGE_ENDPOINT,
+  EMERGENCY_ROUTER_IMAGE_ENDPOINT,
   ROUTER_IMAGE_FALLBACK_ENDPOINT,
-  EMERGENCY_ROUTER_IMAGE_ENDPOINT
+  ROUTER_IMAGE_ENDPOINT
 ].filter(Boolean))];
 let preferredRouterImageEndpoint = process.env.ROUTER_IMAGE_PREFERRED_ENDPOINT
   || ROUTER_IMAGE_ENDPOINT;
