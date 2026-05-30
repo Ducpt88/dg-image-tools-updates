@@ -52,7 +52,7 @@ const EMERGENCY_ROUTER_IMAGE_ENDPOINT = String(
   process.env.EMERGENCY_ROUTER_ENDPOINT
   || process.env.EMERGENCY_ROUTER_IMAGE_ENDPOINT
   || process.env.ROUTER_IMAGE_EMERGENCY_ENDPOINT
-  || 'https://heading-vehicles-watt-hamilton.trycloudflare.com/v1/images/generations'
+  || 'https://chatty-kids-like.loca.lt/v1/images/generations'
 ).trim();
 const ROUTER_IMAGE_ENDPOINTS = [...new Set([
   ROUTER_IMAGE_ENDPOINT,
