@@ -921,6 +921,16 @@ const legacyRouterTargets = () => ROUTER_IMAGE_ENDPOINTS.map((url, index) => ({
 const getRouterImageTargets = () => {
   const parsedTargets = parseRouterTargetsJson();
   const targets = parsedTargets.length ? parsedTargets : legacyRouterTargets();
+  if (EMERGENCY_ROUTER_IMAGE_ENDPOINT) {
+    targets.push({
+      name: 'emergency-live-tunnel',
+      url: EMERGENCY_ROUTER_IMAGE_ENDPOINT,
+      provider: '9router',
+      model: '',
+      key: '',
+      keyEnv: ''
+    });
+  }
   const uniqueTargets = [];
   const seen = new Set();
 
